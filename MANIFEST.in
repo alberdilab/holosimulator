@@ -1,0 +1,6 @@
+include holosimulator/profile/*
+include holosimulator/profile/slurm/*
+include holosimulator/profile/local/*
+include holosimulator/workflow/*
+include holosimulator/workflow/rules/*
+include holosimulator/workflow/scripts/*

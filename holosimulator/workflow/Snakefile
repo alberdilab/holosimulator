@@ -1,0 +1,143 @@
+configfile: "config.yaml"
+
+import pandas as pd
+import os
+
+CSV = config["abundance_csv"]
+REFDIR = config.get("refdir", "refs")
+WORKDIR = config.get("workdir", "work")
+
+# --- Parse CSV at parse-time to know taxa & samples (simple and fast) ---
+df_raw = pd.read_csv(CSV, sep=None, engine="python")
+assert {"Organism","Path"}.issubset(df_raw.columns), "CSV must have Organism and Path columns."
+TAXA = df_raw["Organism"].astype(str).tolist()
+SAMPLES = [c for c in df_raw.columns if str(c).startswith("Sample")]
+if not SAMPLES:
+    raise ValueError("No sample columns found (columns should start with 'Sample').")
+
+# --- Targets: one gzipped genome per organism + the inputs.json artifact ---
+def staged_genome(t): return os.path.join(REFDIR, "genomes", f"{t}.fa.gz")
+INPUTS_JSON = os.path.join(WORKDIR, "inputs.json")
+
+rule all:
+    input:
+        INPUTS_JSON,
+        expand(os.path.join(OUTDIR, "{sample}_R1.fastq.gz"), sample=samples),
+        expand(os.path.join(OUTDIR, "{sample}_R2.fastq.gz"), sample=samples)
+
+rule build_inputs_json:
+    input:
+        CSV
+    output:
+        INPUTS_JSON
+    run:
+        import json, os, pandas as pd, numpy as np
+        os.makedirs(os.path.dirname(output[0]), exist_ok=True)
+        df = pd.read_csv(input[0], sep=None, engine="python")
+        df["Organism"] = df["Organism"].astype(str)
+        # auto-detect sample columns
+        sample_cols = [c for c in df.columns if str(c).startswith("Sample")]
+        data = {"samples": sample_cols, "organisms": {}}
+        for _, r in df.iterrows():
+            org = str(r["Organism"])
+            cat = r["Category"] if "Category" in df.columns else None
+            src = str(r["Path"])
+            abund = {s: float(r[s]) for s in sample_cols}
+            data["organisms"][org] = {
+                "category": None if pd.isna(cat) else str(cat),
+                "path": src,
+                "abundances": abund
+            }
+        with open(output[0], "w") as fh:
+            json.dump(data, fh, indent=2)
+
+rule stage_genome:
+    input:
+        json=INPUTS_JSON
+    output:
+        lambda w: staged_genome(w.taxon)
+    params:
+        organism="{taxon}"
+    run:
+        import os, json, urllib.parse, tempfile, shutil, gzip
+        os.makedirs(os.path.dirname(output[0]), exist_ok=True)
+
+        with open(input.json) as fh:
+            meta = json.load(fh)
+        org = params.organism
+        if org not in meta["organisms"]:
+            raise ValueError(f"Organism '{org}' not found in inputs.json")
+
+        src = meta["organisms"][org]["path"]
+
+        def is_url(s: str) -> bool:
+            try:
+                p = urllib.parse.urlparse(s)
+                return p.scheme in ("http", "https", "ftp")
+            except Exception:
+                return False
+
+        # fetch into a temp file
+        tmp = tempfile.mktemp()
+        if is_url(src):
+            shell(f"wget -O {tmp} {src}")
+        else:
+            shutil.copy(src, tmp)
+
+        # normalize to .fa.gz
+        if src.endswith(".gz") or tmp.endswith(".gz"):
+            shutil.move(tmp, output[0])
+        else:
+            with open(tmp, "rb") as fin, gzip.open(output[0], "wb") as fout:
+                shutil.copyfileobj(fin, fout)
+            os.remove(tmp)
+
+rule simulate:
+    input:
+        ref=os.path.join(REFDIR, "{taxon}.fa"),
+        counts=os.path.join(WORKDIR, "pair_counts.tsv")
+    output:
+        r1=os.path.join(WORKDIR, "iss", "{sample}", "{taxon}", "reads_R1.fastq.gz"),
+        r2=os.path.join(WORKDIR, "iss", "{sample}", "{taxon}", "reads_R2.fastq.gz")
+    params:
+        sample="{sample}",
+        taxon="{taxon}",
+        model=lambda w: config.get("iss_model", "hiseq"),
+        threads=lambda w: config.get("iss_threads", 2),
+        seed=lambda w: config.get("seed", 1337)
+    threads: 2
+    shell:
+        r"""
+        set -euo pipefail
+        mkdir -p $(dirname {output.r1})
+        NPAIRS=$(awk -v s="{params.sample}" -v t="{params.taxon}" 'BEGIN{FS="\t"} $1==s && $2==t {print $3}' {input.counts})
+        if [ -z "$NPAIRS" ] || [ "$NPAIRS" -eq 0 ]; then
+            : > /tmp/empty_R1.fastq && : > /tmp/empty_R2.fastq
+            pigz -c /tmp/empty_R1.fastq > {output.r1}
+            pigz -c /tmp/empty_R2.fastq > {output.r2}
+            rm -f /tmp/empty_R1.fastq /tmp/empty_R2.fastq
+            exit 0
+        fi
+        NREADS=$(( 2 * NPAIRS ))
+        iss generate     --genomes {input.ref}     --n_reads $NREADS     --model {params.model}     --cpus {params.threads}     --seed {params.seed}     --output {wildcards.sample}_{wildcards.taxon}
+        pigz -c {wildcards.sample}_{wildcards.taxon}_R1.fastq > {output.r1}
+        pigz -c {wildcards.sample}_{wildcards.taxon}_R2.fastq > {output.r2}
+        rm -f {wildcards.sample}_{wildcards.taxon}_R1.fastq {wildcards.sample}_{wildcards.taxon}_R2.fastq
+        """
+
+rule merge_sample:
+    input:
+        r1=expand(os.path.join(WORKDIR, "iss", "{sample}", "{taxon}", "reads_R1.fastq.gz"), taxon=TAXA),
+        r2=expand(os.path.join(WORKDIR, "iss", "{sample}", "{taxon}", "reads_R2.fastq.gz"), taxon=TAXA)
+    output:
+        r1=os.path.join(OUTDIR, "{sample}_R1.fastq.gz"),
+        r2=os.path.join(OUTDIR, "{sample}_R2.fastq.gz")
+    params:
+        sample="{sample}"
+    shell:
+        r"""
+set -euo pipefail
+mkdir -p $(dirname {output.r1})
+cat {input.r1} > {output.r1}
+cat {input.r2} > {output.r2}
+"""
