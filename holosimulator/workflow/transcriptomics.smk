@@ -10,8 +10,6 @@ INPUT_JSON        = config["input"]                  # augmented JSON (with cont
 OUTDIR            = config["output_dir"]
 SEQUENCING_MODEL  = config["sequencing_model"]
 SEED              = int(config["seed"])
-GENE_ALLOC        = config["gene_allocation"]
-GENE_MIN_READS    = int(config["gene_min_reads"])
 
 # -------------------------
 # Parse transcriptomics JSON

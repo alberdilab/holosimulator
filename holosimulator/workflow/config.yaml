@@ -1,3 +1,2 @@
 version: 1.0
-gene_allocation: "length"
 gene_min_reads: 0
