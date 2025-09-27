@@ -1,0 +1,72 @@
+{
+  "samples": [
+    "Sample1",
+    "Sample2",
+    "Sample3",
+    "Sample4",
+    "Sample5"
+  ],
+  "genomes": [
+    {
+      "id": "G0001",
+      "organism": "GCF_000001405.40_GRCh38.p14_rna",
+      "category": "Host",
+      "path": "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.40_GRCh38.p14/GCF_000001405.40_GRCh38.p14_rna.fna.gz",
+      "abundances": {
+        "Sample1": 2052502.0,
+        "Sample2": 1946288.0,
+        "Sample3": 2052245.0,
+        "Sample4": 2121097.0,
+        "Sample5": 1931757.0
+      }
+    },
+    {
+      "id": "G0002",
+      "organism": "GCF_028743795.1_ASM2874379v1_cds_from_genomic",
+      "category": "Microbiome",
+      "path": "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/028/743/795/GCF_028743795.1_ASM2874379v1/GCF_028743795.1_ASM2874379v1_cds_from_genomic.fna.gz",
+      "abundances": {
+        "Sample1": 3466913.0,
+        "Sample2": 4551589.0,
+        "Sample3": 4219480.0,
+        "Sample4": 4871192.0,
+        "Sample5": 1301118.0
+      }
+    },
+    {
+      "id": "G0003",
+      "organism": "GCF_028743535.1_ASM2874353v1_cds_from_genomic",
+      "category": "Microbiome",
+      "path": "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/028/743/535/GCF_028743535.1_ASM2874353v1/GCF_028743535.1_ASM2874353v1_cds_from_genomic.fna.gz",
+      "abundances": {
+        "Sample1": 4817292.0,
+        "Sample2": 3327587.0,
+        "Sample3": 3870343.0,
+        "Sample4": 3401338.0,
+        "Sample5": 6513155.0
+      }
+    }
+  ],
+  "by_id": {
+    "G0001": {
+      "organism": "GCF_000001405.40_GRCh38.p14_rna",
+      "path": "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.40_GRCh38.p14/GCF_000001405.40_GRCh38.p14_rna.fna.gz",
+      "category": "Host"
+    },
+    "G0002": {
+      "organism": "GCF_028743795.1_ASM2874379v1_cds_from_genomic",
+      "path": "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/028/743/795/GCF_028743795.1_ASM2874379v1/GCF_028743795.1_ASM2874379v1_cds_from_genomic.fna.gz",
+      "category": "Microbiome"
+    },
+    "G0003": {
+      "organism": "GCF_028743535.1_ASM2874353v1_cds_from_genomic",
+      "path": "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/028/743/535/GCF_028743535.1_ASM2874353v1/GCF_028743535.1_ASM2874353v1_cds_from_genomic.fna.gz",
+      "category": "Microbiome"
+    }
+  },
+  "by_organism": {
+    "GCF_000001405.40_GRCh38.p14_rna": "G0001",
+    "GCF_028743795.1_ASM2874379v1_cds_from_genomic": "G0002",
+    "GCF_028743535.1_ASM2874353v1_cds_from_genomic": "G0003"
+  }
+}
