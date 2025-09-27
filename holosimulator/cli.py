@@ -6,7 +6,9 @@ import yaml
 import re
 import json
 import requests
+import random
 import pandas as pd
+from pathlib import Path
 import pathlib
 from collections import defaultdict
 from holosimulator.utils import *
@@ -40,31 +42,54 @@ RESET = "\033[0m"
 # Function definitions
 #####
 
-def unlock_snakemake(output_dir, profile):
+def run_unlock(module, output_dir, profile):
+
     unlock_command = [
         "/bin/bash", "-c",  # Ensures the module system works properly
-        f"module load {config_vars['SNAKEMAKE_MODULE']} && "
         "snakemake "
-        f"-s {PACKAGE_DIR / 'workflow' / 'Snakefile'} "
+        f"-s {PACKAGE_DIR / 'bin' / 'unlock.smk'} "
         f"--directory {output_dir} "
         f"--configfile {CONFIG_PATH} "
         f"--workflow-profile {PACKAGE_DIR / 'profile' / profile} "
-        f"--unlock"
+        f"--unlock "
     ]
 
     subprocess.run(unlock_command, shell=False, check=True)
-    print(f"The output directory {output_dir} has been succesfully unlocked.")
+    print(f"The output directory {output_dir} has been succesfully unlocked")
 
-def run_snakemake(workflow, output_dir, profile):
+def run_staging(module, output_dir, profile, input, host, microbiome):
     snakemake_command = [
         "/bin/bash", "-c",
-        f"module load {config_vars['SNAKEMAKE_MODULE']} && "
         "snakemake "
-        f"-s {PACKAGE_DIR / 'workflow' / 'Snakefile'} "
+        f"-s {PACKAGE_DIR / 'workflow' / 'staging.smk'} "
         f"--directory {output_dir} "
         f"--workflow-profile {PACKAGE_DIR / 'profile' / profile} "
         f"--configfile {CONFIG_PATH} "
-        f"--config package_dir={PACKAGE_DIR} workflow={workflow} output_dir={output_dir}"
+        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} host={host}"
+    ]
+    subprocess.run(snakemake_command, shell=False, check=True)
+
+def run_genomics(module, output_dir, profile, input, sequencing_model, seed):
+    snakemake_command = [
+        "/bin/bash", "-c",
+        "snakemake "
+        f"-s {PACKAGE_DIR / 'workflow' / 'genomics.smk'} "
+        f"--directory {output_dir} "
+        f"--workflow-profile {PACKAGE_DIR / 'profile' / profile} "
+        f"--configfile {CONFIG_PATH} "
+        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
+    ]
+    subprocess.run(snakemake_command, shell=False, check=True)
+
+def run_transcriptomics(module, output_dir, profile, input, sequencing_model, seed):
+    snakemake_command = [
+        "/bin/bash", "-c",
+        "snakemake "
+        f"-s {PACKAGE_DIR / 'workflow' / 'transcriptomics.smk'} "
+        f"--directory {output_dir} "
+        f"--workflow-profile {PACKAGE_DIR / 'profile' / profile} "
+        f"--configfile {CONFIG_PATH} "
+        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
     ]
     subprocess.run(snakemake_command, shell=False, check=True)
 
@@ -74,38 +99,49 @@ def run_snakemake(workflow, output_dir, profile):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="HoloSimulator: Python software for simulating holo-omic datasets",
+        description="HoloSimulator: flexible holo-omic dataset simulator",
         formatter_class=argparse.RawTextHelpFormatter
     )
-    subparsers = parser.add_subparsers(dest="command", help="Available workflows")
+    subparsers = parser.add_subparsers(dest="module", help="Available workflows")
 
-    # Arguments for Metagenomics module
-    subparser_macro = subparsers.add_parser("metagenomics", help="Upload macro-scale nucleotide data to ENA")
-    subparser_macro.add_argument("-i", "--input", required=True, help="Input file")
-    subparser_macro.add_argument("-o", "--output", required=True, type=pathlib.Path, help="Output directory")
-    subparser_macro.add_argument("-h", "--host", required=True, help="Host genome(s)")
-    subparser_macro.add_argument("-m", "--microbiome", required=True, help="Microbial genome(s)")
-    subparser_macro.add_argument("-n", "--sample-size", required=True, help="Number of simulated samples")
-    subparser_macro.add_argument("-d", "--sequencing-depth", required=True, help="Average sequencing depth per sample")
-    subparser_macro.add_argument("-z", "--sequencing-depth-variance", required=True, help="Variance of sequencing depth per sample (Default: 5)")
-    subparser_macro.add_argument("-r", "--ratio", required=True, help="Host-microbiome ratio (Default: 0.25 - 20% host, 80% microbiome)")
-    subparser_macro.add_argument("-w", "--ratio-variance", required=True, help="Across-sample host-microbiome ratio variance (Default: 5)")
-    subparser_macro.add_argument("-v", "--microbiome-variance", required=True, help="Across-sample microbiome variance percentage (Default: 5)")
+    # Arguments for Hologenomics module
+    DEFAULT_GENOMICS = PACKAGE_DIR / "bin" / "default_genomics.csv"
+    subparser_genomics = subparsers.add_parser("genomics", help="Simulate hologenomics reads")
+    subparser_genomics.add_argument("-i", "--input", default=DEFAULT_GENOMICS, required=False, help="Input file")
+    subparser_genomics.add_argument("-o", "--output", required=False, default=os.getcwd(), type=pathlib.Path, help="Working directory. Default is the directory from which HoloSimulator is called.")
+    subparser_genomics.add_argument("-e", "--host", required=False, help="Host genome(s)")
+    subparser_genomics.add_argument("-m", "--microbiome", required=False, help="Microbial genome(s)")
+    subparser_genomics.add_argument("-n", "--sample-size", dest="sample_size", default=1, required=False, help="Number of simulated samples")
+    subparser_genomics.add_argument("-d", "--sequencing-depth", dest="sequencing_depth", default=3000000, required=False, help="Average sequencing depth per sample (Default: 3000000")
+    subparser_genomics.add_argument("-z", "--sequencing-depth-variance", dest="sequencing_depth_variance", default=2, required=False, help="Variance of sequencing depth per sample (Default: 2)")
+    subparser_genomics.add_argument("-f", "--host-fraction", dest="host_fraction", default=0.2, required=False, help="Fraction of host DNA (Default: 0.2)")
+    subparser_genomics.add_argument("-w", "--host-fraction-variance", dest="host_fraction_variance", default=2, required=False, help="Across-sample host-microbiome ratio variance (Default: 5)")
+    subparser_genomics.add_argument("-v", "--microbiome-variance", dest="microbiome_variance", default=2, required=False, help="Across-sample microbiome variance percentage (Default: 5)")
+    subparser_genomics.add_argument("-q", "--sequencing-model", dest="sequencing_model", default="hiseq", required=False, help="Sequencing model for ISS (Default: HiSeq)")
+    subparser_genomics.add_argument("-s","--seed", required=False, type=int, default=random.randint(0, 9999), help="Random seed for reproducibility. If not set, results will vary across runs ")   
+    subparser_genomics.add_argument("-p","--profile", default="slurm")   
 
-    # Arguments for Metatranscriptomics module
-    subparser_micro = subparsers.add_parser("metatranscriptomics", help="Upload micro-scale nucleotide data to ENA")
-    subparser_macro.add_argument("-i", "--input", required=True, help="Input file")
-    subparser_macro.add_argument("-o", "--output", required=True, type=pathlib.Path, help="Output directory")
-    subparser_macro.add_argument("-h", "--host", required=True, help="Host genome(s)")
-    subparser_macro.add_argument("-m", "--microbiome", required=True, help="Microbial genome(s)")
-    subparser_macro.add_argument("-n", "--sample-size", required=True, help="Number of simulated samples")
-    subparser_macro.add_argument("-r", "--ratio", required=True, help="Host-microbiome ratio (Default: 0.25 - 20% host, 80% microbiome)")
-    subparser_macro.add_argument("-w", "--ratio-variance", required=True, help="Across-sample host-microbiome ratio variance (Default: 5)")
-    subparser_macro.add_argument("-v", "--microbiome-variance", required=True, help="Across-sample microbiome variance percentage (Default: 5)")
+    # Arguments for Holotranscriptomics module
+    DEFAULT_TRANSCRIPTOMICS = PACKAGE_DIR / "bin" / "default_transcriptomics.csv"
+    subparser_transcriptomics = subparsers.add_parser("transcriptomics", help="Simulate holotranscriptomics reads")
+    subparser_transcriptomics.add_argument("-i", "--input", default=DEFAULT_TRANSCRIPTOMICS, required=False, help="Input file")
+    subparser_transcriptomics.add_argument("-o", "--output", required=False, default=os.getcwd(), type=pathlib.Path, help="Working directory. Default is the directory from which HoloSimulator is called.")
+    subparser_transcriptomics.add_argument("-e", "--host", required=False, help="Host genome(s)")
+    subparser_transcriptomics.add_argument("-m", "--microbiome", required=False, help="Microbial genome(s)")
+    subparser_transcriptomics.add_argument("-n", "--sample-size", dest="sample_size", required=False, help="Number of simulated samples")
+    subparser_transcriptomics.add_argument("-d", "--sequencing-depth", dest="sequencing_depth", default=3000000, required=False, help="Average sequencing depth per sample (Default: 3000000")
+    subparser_transcriptomics.add_argument("-z", "--sequencing-depth-variance", dest="sequencing_depth_variance", default=2, required=False, help="Variance of sequencing depth per sample (Default: 2)")
+    subparser_transcriptomics.add_argument("-f", "--host-fraction", dest="host_fraction", default=0.2, required=False, help="Fraction of host DNA (Default: 0.2)")
+    subparser_transcriptomics.add_argument("-w", "--host-fraction-variance", dest="host_fraction_variance", default=2, required=False, help="Across-sample host-microbiome ratio variance (Default: 5)")
+    subparser_transcriptomics.add_argument("-v", "--microbiome-variance", dest="microbiome_variance", required=False, default=2, help="Across-sample microbiome variance percentage (Default: 5)")
+    subparser_transcriptomics.add_argument("-q", "--sequencing-model", dest="sequencing_model", default="hiseq", required=False, help="Sequencing model for ISS (Default: HiSeq)")
+    subparser_transcriptomics.add_argument("-s","--seed", required=False, type=int, default=random.randint(0, 9999), help="Random seed for reproducibility. If not set, results will vary across runs")   
+    subparser_transcriptomics.add_argument("-p","--profile", default="slurm")  
 
     # Arguments for unlock
     subparser_unlock = subparsers.add_parser("unlock", help="Unlock output directory")
     subparser_unlock.add_argument("-o", "--output", required=False, type=pathlib.Path, default=os.getcwd(), help="Output directory. Default is the directory from which drakkar is called.")
+    subparser_unlock.add_argument("-p", "--profile", required=False, default="slurm", help="Snakemake profile. Default is slurm")
 
     # Arguments for update
     subparser_update = subparsers.add_parser("update", help="Reinstall HoloSimulator from the Git repo (forces reinstall in this environment)")
@@ -116,43 +152,22 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    if args.command == "macrosample":
-        input_dir = args.output / "input"
-        input_dir.mkdir(parents=True, exist_ok=True)
-        create_secret(args.username, args.password, str(Path(args.output).resolve() / 'input' / '.secret.yml'))
-        create_data_dict(args.metadata, args.data, str(Path(args.output).resolve() / 'input' / 'input.json'))
-        create_run_checklists(args.metadata, str(Path(args.output).resolve() / 'checklists' / 'run'))
-        create_experiment_checklists(args.metadata, str(Path(args.output).resolve() / 'checklists' / 'experiment'))
-        create_sample_checklists(args.metadata, str(Path(args.output).resolve() / 'checklists' / 'sample'))
-        run_snakemake(args.command, Path(args.output).resolve(), 'slurm')
-
-    if args.command == "microsample":
-        input_dir = args.output / "input"
-        input_dir.mkdir(parents=True, exist_ok=True)
-        create_secret(args.username, args.password, str(Path(args.output).resolve() / 'input' / '.secret.yml'))
-        create_data_dict(args.metadata, args.data, str(Path(args.output).resolve() / 'input' / 'input.json'))
-        create_run_checklists(args.metadata, str(Path(args.output).resolve() / 'checklists' / 'run'))
-        create_experiment_checklists(args.metadata, str(Path(args.output).resolve() / 'checklists' / 'experiment'))
-        create_microsample_checklists(args.metadata, str(Path(args.output).resolve() / 'checklists' / 'sample'))
-        run_snakemake(args.command, Path(args.output).resolve(), 'slurm')
-
-
     ###
     # Unlock or update
     ###
 
-    if args.command == "unlock":
-        print(f"{HEADER1}UNLOCKING HOLOSIMULATOR DIRECTORY...{RESET}", flush=True)
+    if args.module == "unlock":
+        print(f"{HEADER1}Unlocking HoloSimulator Directory...{RESET}", flush=True)
         print(f"", flush=True)
-        run_unlock(args.command, args.output, args.profile)
+        run_unlock(args.module, args.output, args.profile)
 
-    elif args.command == "update":
+    elif args.module == "update":
         pip_cmd = [
                     sys.executable, "-m", "pip", "install",
                     "--upgrade", "--force-reinstall", "--no-deps",
                     "git+https://github.com/alberdilab/holosimulator.git"
                 ]
-        print(f"{HEADER1}UPDATING HOLOSIMULATOR...{RESET}", flush=True)
+        print(f"{HEADER1}Updating HoloSimulator...{RESET}", flush=True)
         print(f"", flush=True)
         try:
             update_code = subprocess.run(pip_cmd)
@@ -171,6 +186,90 @@ def main():
             print(f"jobs are finished or killed before unlocking the working directory.")
             print(f"{INFO}Run 'holosimulator unlock' to unlock the working directory{RESET}")
             sys.exit(2)
+
+    ###
+    # Run pipeline
+    ###
+
+    if not args.module in ("unlock", "update"):
+
+        GENOMES_JSON = args.output / "genomes.json"
+        GENES_JSON = args.output / "genes.json"
+        GENOMES_JSON.parent.mkdir(parents=True, exist_ok=True) 
+
+        if (args.host and str(args.host).strip()) or (args.microbiome and str(args.microbiome).strip()):
+            args_to_genomics_json(
+                host=args.host,
+                microbiome=args.microbiome,
+                sample_size=args.sample_size,
+                sequencing_depth=args.sequencing_depth,
+                sequencing_depth_variance=args.sequencing_depth_variance,
+                host_fraction=args.host_fraction,
+                host_fraction_variance=args.host_fraction_variance,
+                microbiome_variance=args.microbiome_variance,
+                seed=args.seed,
+                output_json=GENOMES_JSON)
+        else:
+            csv_to_inputs_json(args.input,GENOMES_JSON)
+
+        print(f"{HEADER1}Staging reference genomes...{RESET}", flush=True)
+
+        # Check genomes and yield errors if necessary
+        bad = {p: ok for p, ok in check_genomics_paths(GENOMES_JSON).items() if not ok}
+        if bad:
+            print(f"{ERROR}Some genome paths are invalid:{RESET}", flush=True)
+            for p in bad:
+                print(" -", p)
+            raise SystemExit(1)
+
+        run_staging(
+            args.module, 
+            Path(args.output).resolve(), 
+            args.profile, 
+            GENOMES_JSON, 
+            args.host, 
+            args.microbiome)
+
+        if args.module == "genomics":            
+            print(f"{HEADER1}Simulating reads...{RESET}", flush=True)
+            run_genomics(
+                args.module, 
+                Path(args.output).resolve(), 
+                args.profile, 
+                GENOMES_JSON, 
+                args.sequencing_model,
+                args.seed)
+
+        if args.module == "transcriptomics":
+            print(f"{HEADER1}Calculating read allocation...{RESET}", flush=True)
+            genomics_to_transcriptomics_json(
+                GENOMES_JSON, 
+                GENES_JSON, 
+                Path(args.output).resolve(),
+                allocation="tpm",
+                allocation_params={
+                    "read_length": 150,
+                    "ln_mu": 0.0, "ln_sigma": 1.2,
+                    "gc_bias_strength": 2.0, "gc_bias_linear": 0.0,
+                    "overdispersion": 50.0,      # smaller => noisier
+                    "dropout_rate": 0.01,
+                    "min_reads": 0,
+                },
+                pairs_to_reads=2)
+
+            print(f"{HEADER1}Simulating reads...{RESET}", flush=True)
+            run_transcriptomics(
+                args.module, 
+                Path(args.output).resolve(), 
+                args.profile, 
+                GENES_JSON, 
+                args.sequencing_model,
+                args.seed)
+        ###
+        # Run snakemake
+        ###
+
+
 
 if __name__ == "__main__":
     main()

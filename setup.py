@@ -14,6 +14,8 @@ setup(
         "argparse",
         "PyYAML",
         "requests",
+        "snakemake==9.11.6",
+        "snakemake-executor-plugin-cluster-generic==1.0.9",
         "InSilicoSeq==2.0.1"
     ],
     entry_points={
@@ -21,5 +23,5 @@ setup(
             "holosimulator=holosimulator.cli:main",
         ],
     },
-    python_requires=">=3.6",
+    python_requires=">=3.11",
 )
