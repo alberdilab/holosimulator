@@ -4,3 +4,4 @@ include holosimulator/profile/local/*
 include holosimulator/workflow/*
 include holosimulator/workflow/rules/*
 include holosimulator/workflow/scripts/*
+include holosimulator/bin/*
