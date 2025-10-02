@@ -194,8 +194,8 @@ def main():
 
     if not args.module in ("unlock", "update"):
 
-        GENOMES_JSON = args.output / "genomes.json"
-        GENES_JSON = args.output / "genes.json"
+        GENOMES_JSON = "genomes.json"
+        GENES_JSON = "genes.json"
         GENOMES_JSON.parent.mkdir(parents=True, exist_ok=True) 
 
         if (args.host and str(args.host).strip()) or (args.microbiome and str(args.microbiome).strip()):
