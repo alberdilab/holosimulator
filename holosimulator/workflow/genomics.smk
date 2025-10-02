@@ -96,8 +96,6 @@ rule merge_sample:
         r1 = os.path.join(OUTDIR, "{sample}_1.fq.gz"),
         r2 = os.path.join(OUTDIR, "{sample}_2.fq.gz")
     threads: 1
-    params:
-        organism = lambda w: ID_TO_ORG[w.gid]
     wildcard_constraints:
         sample = "|".join(re.escape(s) for s in SAMPLES)
     shell:
