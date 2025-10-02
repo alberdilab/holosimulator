@@ -43,7 +43,7 @@ RESET = "\033[0m"
 # Function definitions
 #####
 
-def run_unlock(module, output_dir, threads):
+def run_unlock(module, output_dir):
 
     unlock_command = [
         "/bin/bash", "-c",  # Ensures the module system works properly
@@ -51,7 +51,6 @@ def run_unlock(module, output_dir, threads):
         f"-s {PACKAGE_DIR / 'bin' / 'unlock.smk'} "
         f"--directory {output_dir} "
         f"--configfile {CONFIG_PATH} "
-        f"--config cores={threads} "
         f"--unlock "
     ]
 
