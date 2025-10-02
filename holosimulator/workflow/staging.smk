@@ -30,6 +30,8 @@ rule stage_genome:
         temp(GENOME_IN)
     threads: 1
     retries: 3
+    resources:
+        iowrite=1
     run:
         import urllib.parse, gzip, shutil, os
         from datetime import datetime
