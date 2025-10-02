@@ -59,18 +59,6 @@ def run_unlock(module, output_dir):
     subprocess.run(unlock_command, shell=False, check=True)
     print(f"The output directory {output_dir} has been succesfully unlocked")
 
-def run_staging(module, output_dir, threads, input, host, microbiome):
-    snakemake_command = [
-        "/bin/bash", "-c",
-        "snakemake "
-        f"-s {PACKAGE_DIR / 'workflow' / 'staging.smk'} "
-        f"--directory {output_dir} "
-        f"--cores {threads} "
-        f"--configfile {CONFIG_PATH} "
-        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} host={host}"
-    ]
-    subprocess.run(snakemake_command, shell=False, check=True)
-
 def run_genomics(module, output_dir, threads, input, sequencing_model, seed):
     snakemake_command = [
         "/bin/bash", "-c",
@@ -78,6 +66,7 @@ def run_genomics(module, output_dir, threads, input, sequencing_model, seed):
         f"-s {PACKAGE_DIR / 'workflow' / 'genomics.smk'} "
         f"--directory {output_dir} "
         f"--cores {threads} "
+        f"--quiet 2>/dev/null "
         f"--configfile {CONFIG_PATH} "
         f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
     ]
@@ -90,6 +79,7 @@ def run_transcriptomics(module, output_dir, threads, input, sequencing_model, se
         f"-s {PACKAGE_DIR / 'workflow' / 'transcriptomics.smk'} "
         f"--directory {output_dir} "
         f"--cores {threads} "
+        f"--quiet 2>/dev/null "
         f"--configfile {CONFIG_PATH} "
         f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
     ]
