@@ -209,7 +209,7 @@ def main():
         print(f"[{ts()}] {HEADER1}Staging reference genomes...{RESET}", flush=True)
 
         # Check genomes and yield errors if necessary
-        bad = {p: ok for p, ok in check_genomics_paths(GENOMES_JSON).items() if not ok}
+        bad = {p: ok for p, ok in check_genomics_paths(args.output / GENOMES_JSON).items() if not ok}
         if bad:
             print(f"{ERROR}Some genome paths are invalid:{RESET}", flush=True)
             for p in bad:
