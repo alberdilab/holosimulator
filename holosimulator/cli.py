@@ -66,6 +66,7 @@ def run_staging(module, output_dir, threads, input, host, microbiome):
         f"--directory {output_dir} "
         f"--cores {threads} "
         f"--configfile {CONFIG_PATH} "
+        f"--quiet 2>/dev/null "
         f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} host={host}"
     ]
     subprocess.run(snakemake_command, shell=False, check=True)

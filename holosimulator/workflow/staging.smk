@@ -30,8 +30,9 @@ rule stage_genome:
         temp(GENOME_IN)
     threads: 1
     run:
-        import urllib.parse, tempfile, shutil, gzip, os
+        import urllib.parse, gzip, shutil, os
         from datetime import datetime
+
         def ts():
             return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -42,28 +43,44 @@ rule stage_genome:
 
         def is_url(s):
             try:
-                p = urllib.parse.urlparse(s)
+                from urllib.parse import urlparse
+                p = urlparse(s)
                 return p.scheme in ("http","https","ftp")
             except Exception:
                 return False
 
-        tf = tempfile.NamedTemporaryFile(delete=False); tf.close()
-        
         if is_url(src):
-            print(f"[{ts()}] [Download genome] Downloading genome {gid} from {src}", flush=True)
-            shell(f'wget -O "{tf.name}" "{src}"')
-            print(f"[{ts()}] [Stage genome] Genome {gid} staged", flush=True)
+            print(f"[{ts()}] [stage_genome] Downloading genome {gid} from {src}", flush=True)
+            shell(
+                r'''
+                set -euo pipefail
+                wget \
+                  --no-verbose \
+                  --tries=3 \
+                  --retry-connrefused \
+                  --waitretry=5 \
+                  --dns-timeout=30 \
+                  --connect-timeout=30 \
+                  --read-timeout=900 \
+                  --continue \
+                  --inet4-only \
+                  -O "{output}" "{src}"
+                '''
+            )
         else:
-            print(f"[{ts()}] [Copy genome] Copying genome {gid} from {src}", flush=True)
-            shutil.copy(src, tf.name)
-            print(f"[{ts()}] [Stage genome] Genome {gid} staged", flush=True)
+            print(f"[{ts()}] [stage_genome] Copying genome {gid} from {src}", flush=True)
+            shutil.copy(src, output[0])
 
-        if src.endswith(".gz") or tf.name.endswith(".gz"):
-            shutil.move(tf.name, output[0])
-        else:
-            with open(tf.name, "rb") as fin, gzip.open(output[0], "wb") as fout:
+        # Compress only if needed
+        if not output[0].endswith(".gz") and not src.endswith(".gz"):
+            print(f"[{ts()}] [stage_genome] Compressing {output[0]}", flush=True)
+            tmp_unzipped = output[0] + ".tmp"
+            shutil.move(output[0], tmp_unzipped)
+            with open(tmp_unzipped, "rb") as fin, gzip.open(output[0], "wb") as fout:
                 shutil.copyfileobj(fin, fout)
-            os.remove(tf.name)
+            os.remove(tmp_unzipped)
+
+        print(f"[{ts()}] [stage_genome] Genome {gid} staged -> {output[0]}", flush=True)
 
 rule decompress:
     input:
