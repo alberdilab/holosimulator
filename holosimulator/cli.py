@@ -188,8 +188,8 @@ def main():
 
     if not args.module in ("unlock", "update"):
 
-        GENOMES_JSON = "genomes.json"
-        GENES_JSON = "genes.json"
+        GENOMES_JSON = args.output / "genomes.json"
+        GENES_JSON = args.output / "genes.json"
 
         if (args.host and str(args.host).strip()) or (args.microbiome and str(args.microbiome).strip()):
             args_to_genomics_json(
