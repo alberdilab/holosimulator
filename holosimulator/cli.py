@@ -52,6 +52,7 @@ def run_unlock(module, output_dir):
         f"--directory {output_dir} "
         f"--configfile {CONFIG_PATH} "
         f"--unlock "
+        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir}"
     ]
 
     subprocess.run(unlock_command, shell=False, check=True)
