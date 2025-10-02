@@ -47,7 +47,7 @@ rule stage_genome:
         
         if is_url(src):
             print(f"[stage_genome] Downloading genome {gid} from {src}")
-            shell(f'wget -O "{tf.name}" "{src}"')
+            shell(f'wget -q -O "{tf.name}" "{src}"')
         else:
             print(f"[stage_genome] Copying genome {gid} from {src}")
             shutil.copy(src, tf.name)
@@ -69,5 +69,6 @@ rule decompress:
         r"""
         set -euo pipefail
         mkdir -p "$(dirname {output})"
+        echo "[decompress] Decompressing {input} -> {output}"
         gzip -cd "{input}" > "{output}"
         """

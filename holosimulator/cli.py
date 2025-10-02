@@ -121,6 +121,7 @@ def main():
     subparser_genomics.add_argument("-q", "--sequencing-model", dest="sequencing_model", default="hiseq", required=False, help="Sequencing model for ISS (Default: HiSeq)")
     subparser_genomics.add_argument("-s", "--seed", required=False, type=int, default=random.randint(0, 9999), help="Random seed for reproducibility. If not set, results will vary across runs ")   
     subparser_genomics.add_argument("-t", "--threads", default=1, help="Number of threads to use (Default: 1)")   
+    subparser_genomics.add_argument("--verbose", action="store_true", help="Print verbose output")   
 
     # Arguments for Holotranscriptomics module
     DEFAULT_TRANSCRIPTOMICS = PACKAGE_DIR / "bin" / "default_transcriptomics.csv"
@@ -138,6 +139,7 @@ def main():
     subparser_transcriptomics.add_argument("-q", "--sequencing-model", dest="sequencing_model", default="hiseq", required=False, help="Sequencing model for ISS (Default: HiSeq)")
     subparser_transcriptomics.add_argument("-s", "--seed", required=False, type=int, default=random.randint(0, 9999), help="Random seed for reproducibility. If not set, results will vary across runs")   
     subparser_transcriptomics.add_argument("-t", "--threads", default=1, help="Number of threads to use (Default: 1)")   
+    subparser_transcriptomics.add_argument("--verbose", action="store_true", help="Print verbose output")   
 
     # Arguments for unlock
     subparser_unlock = subparsers.add_parser("unlock", help="Unlock output directory")
