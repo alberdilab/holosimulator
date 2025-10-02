@@ -16,7 +16,7 @@ IDS        = [g["id"] for g in GENOMES]              # genome IDs like G0001
 ID_TO_PATH = {g["id"]: g["path"] for g in GENOMES}
 
 # Paths
-GENOME_IN      = os.path.join(OUTDIR, "genomes", "{gid}.fa.gz")
+GENOME_IN      = os.path.join(OUTDIR, "genomes", gid, "{gid}.fa.gz")
 GENOME_OUT      = os.path.join(OUTDIR, "genomes", "{gid}.fa")
 
 rule all:
@@ -30,8 +30,6 @@ rule stage_genome:
         temp(GENOME_IN)
     threads: 1
     retries: 3
-    resources:
-        iowrite=1
     run:
         import urllib.parse, gzip, shutil, os
         from datetime import datetime
@@ -53,26 +51,16 @@ rule stage_genome:
                 return False
 
         if is_url(src):
-            part = output[0] + ".part"
-            print(f"[{ts()}] [stage_genome] Downloading genome {gid} -> {part}", flush=True)
+            print(f"[{ts()}] [stage_genome] Downloading genome {gid} from {src}", flush=True)
             shell(
                 r'''
                 set -euo pipefail
                 wget \
-                --no-verbose \
-                --tries=3 \
-                --retry-connrefused \
-                --waitretry=5 \
-                --dns-timeout=30 \
-                --connect-timeout=30 \
-                --read-timeout=900 \
-                --continue \
-                --inet4-only \
-                -O "{part}" "{src}"
-                '''.replace("{part}", part).replace("{src}", src)
+                  --tries=3 \
+                  --waitretry=5 \
+                  -O "{output}" "{src}"
+                '''
             )
-            # cheap, atomic publish
-            os.replace(part, output[0])
         else:
             print(f"[{ts()}] [stage_genome] Copying genome {gid} from {src}", flush=True)
             shutil.copy(src, output[0])
