@@ -16,7 +16,7 @@ IDS        = [g["id"] for g in GENOMES]              # genome IDs like G0001
 ID_TO_PATH = {g["id"]: g["path"] for g in GENOMES}
 
 # Paths
-GENOME_IN      = os.path.join(OUTDIR, "genomes", "{gid}","{gid}.fa.gz")
+GENOME_IN      = os.path.join(OUTDIR, "genomes", gid, "{gid}.fa.gz")
 GENOME_OUT      = os.path.join(OUTDIR, "genomes", "{gid}.fa")
 
 rule all:
@@ -36,30 +36,7 @@ rule stage_genome:
         r"""
         set -euo pipefail
         mkdir -p "$(dirname {output})"
-
-        ts() {{ date '+%Y-%m-%d %H:%M:%S'; }}
-
-        gid="{wildcards.gid}"
-        src="{params.src}"
-
-        if [[ "$src" =~ ^(http|https|ftp):// ]]; then
-            echo "[`ts`] [stage_genome] Downloading genome $gid from $src"
-            wget --tries=3 --waitretry=5 -O "{output}" "$src"
-        else
-            echo "[`ts`] [stage_genome] Copying genome $gid from $src"
-            cp "$src" "{output}"
-        fi
-
-        # Compress only if needed
-        if [[ ! "{output}" =~ \.gz$ && ! "$src" =~ \.gz$ ]]; then
-            echo "[`ts`] [stage_genome] Compressing {output}"
-            tmp="{output}.tmp"
-            mv "{output}" "$tmp"
-            gzip -c "$tmp" > "{output}"
-            rm "$tmp"
-        fi
-
-        echo "[`ts`] [stage_genome] Genome $gid staged -> {output}"
+        wget --tries=3 --waitretry=5 -O "{output}" "{params.src}"
         """
 
 rule decompress:
