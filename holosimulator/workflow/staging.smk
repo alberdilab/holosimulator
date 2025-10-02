@@ -44,9 +44,12 @@ rule stage_genome:
                 return False
 
         tf = tempfile.NamedTemporaryFile(delete=False); tf.close()
+        
         if is_url(src):
-            shell(f'wget -q -O "{tf.name}" "{src}"')
+            print(f"[stage_genome] Downloading genome {gid} from {src}")
+            shell(f'wget -O "{tf.name}" "{src}"')
         else:
+            print(f"[stage_genome] Copying genome {gid} from {src}")
             shutil.copy(src, tf.name)
 
         if src.endswith(".gz") or tf.name.endswith(".gz"):
