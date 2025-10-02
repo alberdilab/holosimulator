@@ -202,7 +202,7 @@ def main():
         GENES_JSON = "genes.json"
 
         if (args.host and str(args.host).strip()) or (args.microbiome and str(args.microbiome).strip()):
-            staging(
+            args_to_genomics_json(
                 host=args.host,
                 microbiome=args.microbiome,
                 sample_size=args.sample_size,
@@ -226,14 +226,8 @@ def main():
                 print(" -", p)
             raise SystemExit(1)
 
-        downloaded = download_genomes(
-            json_path=GENOMES_JSON,
-            outdir=Path(args.output).resolve(),
-            layout="by-id",
-            decompress=True,
-            retries=3,
-            speed_limit_kbps=0
-            )
+        staged = staging(json_path=GENOMES_JSON,
+            outdir=Path(args.output).resolve())
 
         if args.module == "genomics":            
             print(f"{HEADER1}Simulating reads...{RESET}", flush=True)
