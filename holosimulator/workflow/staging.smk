@@ -16,7 +16,7 @@ IDS        = [g["id"] for g in GENOMES]              # genome IDs like G0001
 ID_TO_PATH = {g["id"]: g["path"] for g in GENOMES}
 
 # Paths
-GENOME_IN      = os.path.join(OUTDIR, "genomes", "{gid}", "{gid}.fa.gz")
+GENOME_IN      = os.path.join(OUTDIR, "genomes", "{gid}.fa.gz")
 GENOME_OUT      = os.path.join(OUTDIR, "genomes", "{gid}.fa")
 
 rule all:
@@ -29,15 +29,54 @@ rule stage_genome:
     output:
         temp(GENOME_IN)
     threads: 1
+    resources:
+        download=1
     retries: 3
-    params:
-        src = lambda wc: ID_TO_PATH[wc.gid]
-    shell:
-        r"""
-        set -euo pipefail
-        mkdir -p "$(dirname {output})"
-        wget --tries=3 --waitretry=5 -O "{output}" "{params.src}"
-        """
+    run:
+        import urllib.parse, gzip, shutil, os
+        from datetime import datetime
+
+        def ts():
+            return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        os.makedirs(os.path.dirname(output[0]), exist_ok=True)
+
+        gid  = wildcards.gid
+        src  = ID_TO_PATH[gid]
+
+        def is_url(s):
+            try:
+                from urllib.parse import urlparse
+                p = urlparse(s)
+                return p.scheme in ("http","https","ftp")
+            except Exception:
+                return False
+
+        if is_url(src):
+            print(f"[{ts()}] [stage_genome] Downloading genome {gid} from {src}", flush=True)
+            shell(
+                r'''
+                set -euo pipefail
+                wget \
+                  --tries=3 \
+                  --waitretry=5 \
+                  -O "{output}" "{src}"
+                '''
+            )
+        else:
+            print(f"[{ts()}] [stage_genome] Copying genome {gid} from {src}", flush=True)
+            shutil.copy(src, output[0])
+
+        # Compress only if needed
+        if not output[0].endswith(".gz") and not src.endswith(".gz"):
+            print(f"[{ts()}] [stage_genome] Compressing {output[0]}", flush=True)
+            tmp_unzipped = output[0] + ".tmp"
+            shutil.move(output[0], tmp_unzipped)
+            with open(tmp_unzipped, "rb") as fin, gzip.open(output[0], "wb") as fout:
+                shutil.copyfileobj(fin, fout)
+            os.remove(tmp_unzipped)
+
+        print(f"[{ts()}] [stage_genome] Genome {gid} staged -> {output[0]}", flush=True)
 
 rule decompress:
     input:
