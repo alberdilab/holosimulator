@@ -13,6 +13,7 @@ import pathlib
 from datetime import datetime
 from collections import defaultdict
 from holosimulator.utils import *
+from holosimulator.workflow.staging import download_genomes
 
 #####
 # HoloSimulator installation path
@@ -225,13 +226,14 @@ def main():
                 print(" -", p)
             raise SystemExit(1)
 
-        run_staging(
-            args.module, 
-            Path(args.output).resolve(), 
-            args.threads, 
-            GENOMES_JSON, 
-            args.host, 
-            args.microbiome)
+        downloaded = download_genomes(
+            json_path=GENOMES_JSON,
+            outdir=Path(args.output).resolve(,
+            layout="by-id",
+            decompress=True,
+            retries=3,
+            speed_limit_kbps=0
+        )
 
         if args.module == "genomics":            
             print(f"{HEADER1}Simulating reads...{RESET}", flush=True)
