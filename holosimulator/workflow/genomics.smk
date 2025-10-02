@@ -8,7 +8,6 @@ INPUT_JSON = config["input"]
 OUTDIR     = config["output_dir"]
 SEQUENCING_MODEL = config["sequencing_model"]
 SEED = config["seed"]
-GENE_ALLOC = config["gene_allocation"]
 
 # --- Parse JSON at parse time ---
 with open(INPUT_JSON) as fh:
