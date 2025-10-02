@@ -160,7 +160,7 @@ def main():
     if args.module == "unlock":
         print(f"{HEADER1}Unlocking HoloSimulator Directory...{RESET}", flush=True)
         print(f"", flush=True)
-        run_unlock(args.module, args.output, args.threads)
+        run_unlock(args.module, args.output)
 
     elif args.module == "update":
         pip_cmd = [
