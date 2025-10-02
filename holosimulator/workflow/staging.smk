@@ -31,6 +31,10 @@ rule stage_genome:
     threads: 1
     run:
         import urllib.parse, tempfile, shutil, gzip, os
+        from datetime import datetime
+        def ts():
+            return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         os.makedirs(os.path.dirname(output[0]), exist_ok=True)
 
         gid  = wildcards.gid
@@ -46,11 +50,13 @@ rule stage_genome:
         tf = tempfile.NamedTemporaryFile(delete=False); tf.close()
         
         if is_url(src):
-            print(f"[stage_genome] Downloading genome {gid} from {src}")
+            print(f"[{ts()}] [Download genome] Downloading genome {gid} from {src}", flush=True)
             shell(f'wget -q -O "{tf.name}" "{src}"')
+            print(f"[{ts()}] [Stage genome] Genome {gid} staged", flush=True)
         else:
-            print(f"[stage_genome] Copying genome {gid} from {src}")
+            print(f"[{ts()}] [Copy genome] Copying genome {gid} from {src}", flush=True)
             shutil.copy(src, tf.name)
+            print(f"[{ts()}] [Stage genome] Genome {gid} staged", flush=True)
 
         if src.endswith(".gz") or tf.name.endswith(".gz"):
             shutil.move(tf.name, output[0])
@@ -69,6 +75,6 @@ rule decompress:
         r"""
         set -euo pipefail
         mkdir -p "$(dirname {output})"
-        echo "[decompress] Decompressing {input} -> {output}"
+        echo "[`date '+%Y-%m-%d %H:%M:%S'`] [Decompress genome] Decompressing {input}"
         gzip -cd "{input}" > "{output}"
         """
