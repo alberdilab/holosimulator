@@ -167,6 +167,8 @@ def main():
         print(f"", flush=True)
         try:
             update_code = subprocess.run(pip_cmd)
+            print(f"", flush=True)
+            print(f"{HEADER1}HoloSimulator was succesfully updated!{RESET}", flush=True)
         except Exception as e:
             print(f"Update failed: {e}", file=sys.stderr, flush=True)
             sys.exit(1)
