@@ -16,7 +16,7 @@ IDS        = [g["id"] for g in GENOMES]              # genome IDs like G0001
 ID_TO_PATH = {g["id"]: g["path"] for g in GENOMES}
 
 # Paths
-GENOME_IN      = os.path.join(OUTDIR, "genomes", "{gid}.fa.gz")
+GENOME_IN      = os.path.join(OUTDIR, "genomes", "{gid}","{gid}.fa.gz")
 GENOME_OUT      = os.path.join(OUTDIR, "genomes", "{gid}.fa")
 
 rule all:
