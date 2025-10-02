@@ -51,7 +51,7 @@ rule stage_genome:
         
         if is_url(src):
             print(f"[{ts()}] [Download genome] Downloading genome {gid} from {src}", flush=True)
-            shell(f'wget -q -O "{tf.name}" "{src}"')
+            shell(f'wget -O "{tf.name}" "{src}"')
             print(f"[{ts()}] [Stage genome] Genome {gid} staged", flush=True)
         else:
             print(f"[{ts()}] [Copy genome] Copying genome {gid} from {src}", flush=True)

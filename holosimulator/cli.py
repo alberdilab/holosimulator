@@ -10,6 +10,7 @@ import random
 import pandas as pd
 from pathlib import Path
 import pathlib
+from datetime import datetime
 from collections import defaultdict
 from holosimulator.utils import *
 
@@ -215,7 +216,7 @@ def main():
         else:
             csv_to_inputs_json(args.input,GENOMES_JSON)
 
-        print(f"{HEADER1}Staging reference genomes...{RESET}", flush=True)
+        print(f"{HEADER1}[{ts()}] Staging reference genomes...{RESET}", flush=True)
 
         # Check genomes and yield errors if necessary
         bad = {p: ok for p, ok in check_genomics_paths(GENOMES_JSON).items() if not ok}

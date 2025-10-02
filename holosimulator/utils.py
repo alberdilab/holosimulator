@@ -14,6 +14,9 @@ from collections import defaultdict
 from urllib.parse import urlparse
 from typing import Iterable, List, Dict, Any, Optional
 
+def ts():
+            return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
 # Check if snakemake directory is locked
 
 def is_snakemake_locked(workdir: str) -> bool:
