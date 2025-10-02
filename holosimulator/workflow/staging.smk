@@ -51,16 +51,26 @@ rule stage_genome:
                 return False
 
         if is_url(src):
-            print(f"[{ts()}] [stage_genome] Downloading genome {gid} from {src}", flush=True)
+            part = output[0] + ".part"
+            print(f"[{ts()}] [stage_genome] Downloading genome {gid} -> {part}", flush=True)
             shell(
                 r'''
                 set -euo pipefail
                 wget \
-                  --tries=3 \
-                  --waitretry=5 \
-                  -O "{output}" "{src}"
-                '''
+                --no-verbose \
+                --tries=3 \
+                --retry-connrefused \
+                --waitretry=5 \
+                --dns-timeout=30 \
+                --connect-timeout=30 \
+                --read-timeout=900 \
+                --continue \
+                --inet4-only \
+                -O "{part}" "{src}"
+                '''.replace("{part}", part).replace("{src}", src)
             )
+            # cheap, atomic publish
+            os.replace(part, output[0])
         else:
             print(f"[{ts()}] [stage_genome] Copying genome {gid} from {src}", flush=True)
             shutil.copy(src, output[0])
