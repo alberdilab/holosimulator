@@ -54,6 +54,7 @@ rule simulate:
         r"""
         set -euo pipefail
         mkdir -p "$(dirname {output.r1})"
+        echo "[`date '+%Y-%m-%d %H:%M:%S'`] [Simulate reads] Simulating reads from genome {wildcards.gid} for sample {wildcards.sample}"
 
         if [ "{params.nreads}" -eq 0 ]; then
             : > {output.r1}
@@ -83,6 +84,7 @@ rule compress:
     shell:
         r"""
         set -euo pipefail
+        echo "[`date '+%Y-%m-%d %H:%M:%S'`] [Compress reads] Compressing reads from genom {wildcards.gid} for sample {wildcards.sample}"
         gzip -c "{input.r1}" > "{output.r1}"
         gzip -c "{input.r2}" > "{output.r2}"
         """
@@ -94,12 +96,16 @@ rule merge_sample:
     output:
         r1 = os.path.join(OUTDIR, "{sample}_1.fq.gz"),
         r2 = os.path.join(OUTDIR, "{sample}_2.fq.gz")
+    threads: 1
+    params:
+        organism = lambda w: ID_TO_ORG[w.gid]
     wildcard_constraints:
         sample = "|".join(re.escape(s) for s in SAMPLES)
     shell:
         r"""
         set -euo pipefail
         mkdir -p "$(dirname {output.r1})"
+        echo "[`date '+%Y-%m-%d %H:%M:%S'`] [Merge reads] Merging reads for sample {wildcards.sample}"
         cat {input.r1} > {output.r1}
         cat {input.r2} > {output.r2}
         """
