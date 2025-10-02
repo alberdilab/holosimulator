@@ -217,7 +217,7 @@ def main():
             raise SystemExit(1)
 
         try:
-            staged = staging(json_path=args.output / fGENOMES_JSON, outdir=Path(args.output).resolve())
+            staged = staging(json_path=args.output / GENOMES_JSON, outdir=Path(args.output).resolve())
             print(f"[{ts()}] {INFO}All genomes staged{RESET}", flush=True)
         except Exception as e:
             print(f"[{ts()}] {ERROR}[Staging] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
