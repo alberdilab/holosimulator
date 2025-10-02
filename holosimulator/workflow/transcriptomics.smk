@@ -8,7 +8,6 @@ from glob import glob
 # ------------------
 INPUT_JSON        = config["input"]                  # augmented JSON (with contigs)
 OUTDIR            = config["output_dir"]
-THREADS             = config["threads"]
 SEQUENCING_MODEL  = config["sequencing_model"]
 SEED              = int(config["seed"])
 

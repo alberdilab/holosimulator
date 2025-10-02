@@ -6,7 +6,6 @@ from glob import glob
 # --- Config ---
 INPUT_JSON = config["input"]
 OUTDIR     = config["output_dir"]
-THREADS      = config["threads"]
 
 # --- Parse JSON at parse time ---
 with open(INPUT_JSON) as fh:
