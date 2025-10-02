@@ -196,7 +196,6 @@ def main():
 
         GENOMES_JSON = "genomes.json"
         GENES_JSON = "genes.json"
-        GENOMES_JSON.parent.mkdir(parents=True, exist_ok=True) 
 
         if (args.host and str(args.host).strip()) or (args.microbiome and str(args.microbiome).strip()):
             args_to_genomics_json(
