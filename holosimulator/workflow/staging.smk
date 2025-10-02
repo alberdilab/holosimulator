@@ -6,6 +6,7 @@ from glob import glob
 # --- Config ---
 INPUT_JSON = config["input"]
 OUTDIR     = config["output_dir"]
+THREADS      = config["threads"]
 
 # --- Parse JSON at parse time ---
 with open(INPUT_JSON) as fh:
@@ -28,6 +29,7 @@ rule stage_genome:
         INPUT_JSON
     output:
         temp(GENOME_IN)
+    threads: 1
     run:
         import urllib.parse, tempfile, shutil, gzip, os
         os.makedirs(os.path.dirname(output[0]), exist_ok=True)

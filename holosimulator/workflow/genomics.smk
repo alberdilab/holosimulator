@@ -6,6 +6,7 @@ from glob import glob
 # --- Config ---
 INPUT_JSON = config["input"]
 OUTDIR     = config["output_dir"]
+THREADS      = config["threads"]
 SEQUENCING_MODEL = config["sequencing_model"]
 SEED = config["seed"]
 GENE_ALLOC = config["gene_allocation"]

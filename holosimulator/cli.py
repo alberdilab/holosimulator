@@ -42,7 +42,7 @@ RESET = "\033[0m"
 # Function definitions
 #####
 
-def run_unlock(module, output_dir, profile):
+def run_unlock(module, output_dir, threads):
 
     unlock_command = [
         "/bin/bash", "-c",  # Ensures the module system works properly
@@ -50,46 +50,43 @@ def run_unlock(module, output_dir, profile):
         f"-s {PACKAGE_DIR / 'bin' / 'unlock.smk'} "
         f"--directory {output_dir} "
         f"--configfile {CONFIG_PATH} "
-        f"--workflow-profile {PACKAGE_DIR / 'profile' / profile} "
+        f"--config cores={threads}"
         f"--unlock "
     ]
 
     subprocess.run(unlock_command, shell=False, check=True)
     print(f"The output directory {output_dir} has been succesfully unlocked")
 
-def run_staging(module, output_dir, profile, input, host, microbiome):
+def run_staging(module, output_dir, threads, input, host, microbiome):
     snakemake_command = [
         "/bin/bash", "-c",
         "snakemake "
         f"-s {PACKAGE_DIR / 'workflow' / 'staging.smk'} "
         f"--directory {output_dir} "
-        f"--workflow-profile {PACKAGE_DIR / 'profile' / profile} "
         f"--configfile {CONFIG_PATH} "
-        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} host={host}"
+        f"--config package_dir={PACKAGE_DIR} cores={threads} module={module} output_dir={output_dir} input={input} host={host}"
     ]
     subprocess.run(snakemake_command, shell=False, check=True)
 
-def run_genomics(module, output_dir, profile, input, sequencing_model, seed):
+def run_genomics(module, output_dir, threads, input, sequencing_model, seed):
     snakemake_command = [
         "/bin/bash", "-c",
         "snakemake "
         f"-s {PACKAGE_DIR / 'workflow' / 'genomics.smk'} "
         f"--directory {output_dir} "
-        f"--workflow-profile {PACKAGE_DIR / 'profile' / profile} "
         f"--configfile {CONFIG_PATH} "
-        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
+        f"--config package_dir={PACKAGE_DIR} cores={threads} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
     ]
     subprocess.run(snakemake_command, shell=False, check=True)
 
-def run_transcriptomics(module, output_dir, profile, input, sequencing_model, seed):
+def run_transcriptomics(module, output_dir, threads, input, sequencing_model, seed):
     snakemake_command = [
         "/bin/bash", "-c",
         "snakemake "
         f"-s {PACKAGE_DIR / 'workflow' / 'transcriptomics.smk'} "
         f"--directory {output_dir} "
-        f"--workflow-profile {PACKAGE_DIR / 'profile' / profile} "
         f"--configfile {CONFIG_PATH} "
-        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
+        f"--config package_dir={PACKAGE_DIR} cores={threads} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
     ]
     subprocess.run(snakemake_command, shell=False, check=True)
 
@@ -118,8 +115,8 @@ def main():
     subparser_genomics.add_argument("-w", "--host-fraction-variance", dest="host_fraction_variance", default=2, required=False, help="Across-sample host-microbiome ratio variance (Default: 5)")
     subparser_genomics.add_argument("-v", "--microbiome-variance", dest="microbiome_variance", default=2, required=False, help="Across-sample microbiome variance percentage (Default: 5)")
     subparser_genomics.add_argument("-q", "--sequencing-model", dest="sequencing_model", default="hiseq", required=False, help="Sequencing model for ISS (Default: HiSeq)")
-    subparser_genomics.add_argument("-s","--seed", required=False, type=int, default=random.randint(0, 9999), help="Random seed for reproducibility. If not set, results will vary across runs ")   
-    subparser_genomics.add_argument("-p","--profile", default="slurm")   
+    subparser_genomics.add_argument("-s", "--seed", required=False, type=int, default=random.randint(0, 9999), help="Random seed for reproducibility. If not set, results will vary across runs ")   
+    subparser_genomics.add_argument("-t", "--threads", default=1, help="Number of threads to use (Default: 1)")   
 
     # Arguments for Holotranscriptomics module
     DEFAULT_TRANSCRIPTOMICS = PACKAGE_DIR / "bin" / "default_transcriptomics.csv"
@@ -135,13 +132,12 @@ def main():
     subparser_transcriptomics.add_argument("-w", "--host-fraction-variance", dest="host_fraction_variance", default=2, required=False, help="Across-sample host-microbiome ratio variance (Default: 5)")
     subparser_transcriptomics.add_argument("-v", "--microbiome-variance", dest="microbiome_variance", required=False, default=2, help="Across-sample microbiome variance percentage (Default: 5)")
     subparser_transcriptomics.add_argument("-q", "--sequencing-model", dest="sequencing_model", default="hiseq", required=False, help="Sequencing model for ISS (Default: HiSeq)")
-    subparser_transcriptomics.add_argument("-s","--seed", required=False, type=int, default=random.randint(0, 9999), help="Random seed for reproducibility. If not set, results will vary across runs")   
-    subparser_transcriptomics.add_argument("-p","--profile", default="slurm")  
+    subparser_transcriptomics.add_argument("-s", "--seed", required=False, type=int, default=random.randint(0, 9999), help="Random seed for reproducibility. If not set, results will vary across runs")   
+    subparser_transcriptomics.add_argument("-t", "--threads", default=1, help="Number of threads to use (Default: 1)")   
 
     # Arguments for unlock
     subparser_unlock = subparsers.add_parser("unlock", help="Unlock output directory")
     subparser_unlock.add_argument("-o", "--output", required=False, type=pathlib.Path, default=os.getcwd(), help="Output directory. Default is the directory from which drakkar is called.")
-    subparser_unlock.add_argument("-p", "--profile", required=False, default="slurm", help="Snakemake profile. Default is slurm")
 
     # Arguments for update
     subparser_update = subparsers.add_parser("update", help="Reinstall HoloSimulator from the Git repo (forces reinstall in this environment)")
@@ -159,7 +155,7 @@ def main():
     if args.module == "unlock":
         print(f"{HEADER1}Unlocking HoloSimulator Directory...{RESET}", flush=True)
         print(f"", flush=True)
-        run_unlock(args.module, args.output, args.profile)
+        run_unlock(args.module, args.output, args.threads)
 
     elif args.module == "update":
         pip_cmd = [
@@ -225,7 +221,7 @@ def main():
         run_staging(
             args.module, 
             Path(args.output).resolve(), 
-            args.profile, 
+            args.threads, 
             GENOMES_JSON, 
             args.host, 
             args.microbiome)
@@ -235,7 +231,7 @@ def main():
             run_genomics(
                 args.module, 
                 Path(args.output).resolve(), 
-                args.profile, 
+                args.threads, 
                 GENOMES_JSON, 
                 args.sequencing_model,
                 args.seed)
@@ -261,7 +257,7 @@ def main():
             run_transcriptomics(
                 args.module, 
                 Path(args.output).resolve(), 
-                args.profile, 
+                args.threads, 
                 GENES_JSON, 
                 args.sequencing_model,
                 args.seed)

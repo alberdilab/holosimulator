@@ -1,8 +1,0 @@
-latency-wait: 60
-keep-going: false
-cores: 1
-
-default-resources:
-    mem_mb: 8 * 1024
-    runtime: 10 * 2 ** (attempt - 1)
-max-threads: 8

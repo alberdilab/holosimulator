@@ -1,2 +1,4 @@
 version: 1.0
 gene_min_reads: 0
+latency-wait: 60
+keep-going: true

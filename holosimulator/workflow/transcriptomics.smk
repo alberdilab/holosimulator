@@ -8,6 +8,7 @@ from glob import glob
 # ------------------
 INPUT_JSON        = config["input"]                  # augmented JSON (with contigs)
 OUTDIR            = config["output_dir"]
+THREADS             = config["threads"]
 SEQUENCING_MODEL  = config["sequencing_model"]
 SEED              = int(config["seed"])
 
@@ -83,6 +84,7 @@ rule allocate_gene_reads:
         fa = lambda w: _find_local_fasta(w.gid)
     output:
         alloc = ALLOC_TSV
+    threads: 1
     run:
         import os
         os.makedirs(os.path.dirname(output.alloc), exist_ok=True)
@@ -152,6 +154,7 @@ rule merge_sample:
     output:
         r1 = SAMPLE_R1,
         r2 = SAMPLE_R2
+    threads: 1
     wildcard_constraints:
         sample = WCS_SAMPLE
     shell:
