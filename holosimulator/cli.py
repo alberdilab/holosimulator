@@ -221,7 +221,7 @@ def main():
             print(f"[{ts()}] {INFO}All genomes staged{RESET}", flush=True)
         except Exception as e:
             print(f"[{ts()}] {ERROR}[Staging] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
-            sys.exi
+            sys.exit(1)
 
         if args.module == "genomics":            
             print(f"[{ts()}] {HEADER1}Simulating reads...{RESET}", flush=True)
