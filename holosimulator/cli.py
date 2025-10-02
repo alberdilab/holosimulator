@@ -63,8 +63,9 @@ def run_staging(module, output_dir, threads, input, host, microbiome):
         "snakemake "
         f"-s {PACKAGE_DIR / 'workflow' / 'staging.smk'} "
         f"--directory {output_dir} "
+        f"--cores {threads} "
         f"--configfile {CONFIG_PATH} "
-        f"--config package_dir={PACKAGE_DIR} cores={threads} module={module} output_dir={output_dir} input={input} host={host}"
+        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} host={host}"
     ]
     subprocess.run(snakemake_command, shell=False, check=True)
 
@@ -74,8 +75,9 @@ def run_genomics(module, output_dir, threads, input, sequencing_model, seed):
         "snakemake "
         f"-s {PACKAGE_DIR / 'workflow' / 'genomics.smk'} "
         f"--directory {output_dir} "
+        f"--cores {threads} "
         f"--configfile {CONFIG_PATH} "
-        f"--config package_dir={PACKAGE_DIR} cores={threads} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
+        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
     ]
     subprocess.run(snakemake_command, shell=False, check=True)
 
@@ -85,8 +87,9 @@ def run_transcriptomics(module, output_dir, threads, input, sequencing_model, se
         "snakemake "
         f"-s {PACKAGE_DIR / 'workflow' / 'transcriptomics.smk'} "
         f"--directory {output_dir} "
+        f"--cores {threads} "
         f"--configfile {CONFIG_PATH} "
-        f"--config package_dir={PACKAGE_DIR} cores={threads} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
+        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
     ]
     subprocess.run(snakemake_command, shell=False, check=True)
 
