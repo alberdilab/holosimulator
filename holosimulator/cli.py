@@ -13,7 +13,7 @@ import pathlib
 from datetime import datetime
 from collections import defaultdict
 from holosimulator.utils import *
-from holosimulator.workflow.staging import download_genomes
+from holosimulator.workflow.staging import download_and_decompress
 
 #####
 # HoloSimulator installation path
