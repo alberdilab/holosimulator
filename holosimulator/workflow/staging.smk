@@ -29,6 +29,7 @@ rule stage_genome:
     output:
         temp(GENOME_IN)
     threads: 1
+    retries: 3
     run:
         import urllib.parse, gzip, shutil, os
         from datetime import datetime
@@ -55,15 +56,8 @@ rule stage_genome:
                 r'''
                 set -euo pipefail
                 wget \
-                  --no-verbose \
                   --tries=3 \
-                  --retry-connrefused \
                   --waitretry=5 \
-                  --dns-timeout=30 \
-                  --connect-timeout=30 \
-                  --read-timeout=900 \
-                  --continue \
-                  --inet4-only \
                   -O "{output}" "{src}"
                 '''
             )

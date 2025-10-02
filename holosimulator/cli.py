@@ -51,7 +51,7 @@ def run_unlock(module, output_dir, threads):
         f"-s {PACKAGE_DIR / 'bin' / 'unlock.smk'} "
         f"--directory {output_dir} "
         f"--configfile {CONFIG_PATH} "
-        f"--config cores={threads}"
+        f"--config cores={threads} "
         f"--unlock "
     ]
 
