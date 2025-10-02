@@ -13,7 +13,7 @@ import pathlib
 from datetime import datetime
 from collections import defaultdict
 from holosimulator.utils import *
-from holosimulator.workflow.staging import download_and_decompress
+from holosimulator.workflow.staging import staging
 
 #####
 # HoloSimulator installation path
@@ -202,7 +202,7 @@ def main():
         GENES_JSON = "genes.json"
 
         if (args.host and str(args.host).strip()) or (args.microbiome and str(args.microbiome).strip()):
-            args_to_genomics_json(
+            staging(
                 host=args.host,
                 microbiome=args.microbiome,
                 sample_size=args.sample_size,

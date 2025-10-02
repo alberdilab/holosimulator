@@ -79,7 +79,7 @@ def _download_to_fa(src: str, fa_path: Path, *, retries: int = 3, timeout: float
                 continue
             raise
 
-def download_and_decompress(json_path: str | Path, outdir: str | Path, *, overwrite: bool = False) -> list[Path]:
+def staging(json_path: str | Path, outdir: str | Path, *, overwrite: bool = False) -> list[Path]:
     """
     Read genomes from JSON and write decompressed FASTA files to <outdir>/genomes/{gid}.fa
     Returns the list of produced/kept .fa paths. Sequential; no parallelism.
