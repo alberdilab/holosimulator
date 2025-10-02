@@ -228,12 +228,12 @@ def main():
 
         downloaded = download_genomes(
             json_path=GENOMES_JSON,
-            outdir=Path(args.output).resolve(,
+            outdir=Path(args.output).resolve(),
             layout="by-id",
             decompress=True,
             retries=3,
             speed_limit_kbps=0
-        )
+            )
 
         if args.module == "genomics":            
             print(f"{HEADER1}Simulating reads...{RESET}", flush=True)
