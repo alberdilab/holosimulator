@@ -188,8 +188,8 @@ def main():
 
     if not args.module in ("unlock", "update"):
 
-        GENOMES_JSON = args.output / "genomes.json"
-        GENES_JSON = args.output / "genes.json"
+        GENOMES_JSON =  "genomes.json"
+        GENES_JSON = "genes.json"
 
         if (args.host and str(args.host).strip()) or (args.microbiome and str(args.microbiome).strip()):
             args_to_genomics_json(
@@ -202,7 +202,7 @@ def main():
                 host_fraction_variance=args.host_fraction_variance,
                 microbiome_variance=args.microbiome_variance,
                 seed=args.seed,
-                output_json=GENOMES_JSON)
+                output_json=args.output / GENOMES_JSON)
         else:
             csv_to_inputs_json(args.input,GENOMES_JSON)
 
@@ -218,9 +218,9 @@ def main():
 
         try:
             staged = staging(json_path=GENOMES_JSON, outdir=Path(args.output).resolve())
-            print(f"{INFO}[{ts()}] All genomes staged", flush=True)
+            print(f"[{ts()}] {INFO}All genomes staged{RESET}", flush=True)
         except Exception as e:
-            print(f"{ERROR}[{ts()}] [Staging] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
+            print(f"[{ts()}] {ERROR}[Staging] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
             sys.exi
 
         if args.module == "genomics":            
