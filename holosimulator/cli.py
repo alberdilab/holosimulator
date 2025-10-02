@@ -216,11 +216,15 @@ def main():
                 print(" -", p)
             raise SystemExit(1)
 
-        staged = staging(json_path=GENOMES_JSON,
-            outdir=Path(args.output).resolve())
+        try:
+            staged = staging(json_path=GENOMES_JSON, outdir=Path(args.output).resolve())
+            print(f"{INFO}[{ts()}] All genomes staged", flush=True)
+        except Exception as e:
+            print(f"{ERROR}[{ts()}] [Staging] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
+            sys.exi
 
         if args.module == "genomics":            
-            print(f"{HEADER1}Simulating reads...{RESET}", flush=True)
+            print(f"[{ts()}] {HEADER1}Simulating reads...{RESET}", flush=True)
             run_genomics(
                 args.module, 
                 Path(args.output).resolve(), 

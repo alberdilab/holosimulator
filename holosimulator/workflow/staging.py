@@ -111,8 +111,6 @@ def staging(json_path: str | Path, outdir: str | Path, *, overwrite: bool = Fals
         _log(f"[download] {gid} from {src} -> {fa}")
         _ensure_dir(fa.parent)
         _download_to_fa(src, fa)
-        _log(f"[done] {gid} -> {fa}")
         produced.append(fa)
 
-    _log("All genomes processed.")
     return produced
