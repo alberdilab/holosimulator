@@ -13,7 +13,8 @@ setup(
         "pandas",
         "argparse",
         "PyYAML",
-        "requests"
+        "requests",
+        "snakemake"
     ],
     entry_points={
         "console_scripts": [
