@@ -1,6 +1,7 @@
 configfile: "config.yaml"
 
 import os, json, re, shutil, gzip
+from snakemake.io import expand
 from glob import glob
 
 # --- Config ---
@@ -160,14 +161,12 @@ rule compress:
 
 rule merge_sample:
     input:
-        r1 = lambda w: [os.path.join(OUTDIR, "simulation", w.sample, "{gid}_1.fq.gz") for gid in IDS],
-        r2 = lambda w: [os.path.join(OUTDIR, "simulation", w.sample, "{gid}_2.fq.gz") for gid in IDS]
+        r1 = lambda w: expand(os.path.join(OUTDIR, "simulation", "{sample}", "{gid}_1.fq.gz"), sample=w.sample, gid=IDS),
+        r2 = lambda w: expand(os.path.join(OUTDIR, "simulation", "{sample}", "{gid}_2.fq.gz"), sample=w.sample, gid=IDS),
     output:
         r1 = os.path.join(OUTDIR, "reads", "{sample}_1.fq.gz"),
-        r2 = os.path.join(OUTDIR, "reads", "{sample}_2.fq.gz")
-    threads: 1
-    wildcard_constraints:
-        sample = "|".join(re.escape(s) for s in SAMPLES)
+        r2 = os.path.join(OUTDIR, "reads", "{sample}_2.fq.gz"),
+    threads: 4
     shell:
         r"""
         set -euo pipefail
