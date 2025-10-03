@@ -4,6 +4,16 @@ import os, time, random, gzip
 from typing import IO, Optional
 from holosimulator.utils import is_url, download_to_temp, ts
 
+###
+# Define text colors
+###
+
+HEADER1 = "\033[1;95m"
+ERROR = "\033[1;31m"
+INFO = "\033[1;34m"
+RESET = "\033[0m"
+END = "\033[1;92m"
+
 def _open_maybe_gzip(path: str, mode: str) -> IO:
     return gzip.open(path, mode) if str(path).endswith((".gz", ".bgz", ".bgzip")) else open(path, mode)
 
