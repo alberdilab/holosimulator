@@ -14,7 +14,7 @@ setup(
         "argparse",
         "PyYAML",
         "requests",
-        "snakemake>=3.7"
+        "snakemake>=7.0"
     ],
     entry_points={
         "console_scripts": [
