@@ -12,7 +12,7 @@ dependencies:
   - argparse
   - PyYAML
   - requests
-  - snakemake
+  - snakemake>=8.0.1
   - art_modern==1.1.6
   - pip
   - pip:
