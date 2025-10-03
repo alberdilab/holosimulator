@@ -54,8 +54,8 @@ rule simulate:
         echo "[`date '+%Y-%m-%d %H:%M:%S'`] [Simulate reads] Simulating reads from genome {wildcards.gid} for sample {wildcards.sample}"
 
         if [ "{params.nreads}" -eq 0 ]; then
-            : > {output.r1}
-            : > {output.r2}
+            : > {output}
+
         else
             art_modern \
                 --mode wgs \
@@ -116,42 +116,52 @@ rule compress:
     output:
         r1 = temp(os.path.join(OUTDIR, "simulation/{sample}/{gid}_1.fq.gz")),
         r2 = temp(os.path.join(OUTDIR, "simulation/{sample}/{gid}_2.fq.gz"))
+    params:
+        nreads   = lambda w: 2 * int(ABUND[ID_TO_ORG[w.gid]][w.sample])
     threads: 1
     shell:
         r"""
         set -euo pipefail
 
-        zcat -f {input} | \
-        awk -v R1="{output.r1}" -v R2="{output.r2}" '
-            BEGIN{
-                cmd1 = "gzip -c -p {threads} > " R1;
-                cmd2 = "gzip -c -p {threads} > " R2;
-            }
-            {
-                # read one FASTQ record (4 lines)
-                h=$0; getline s; getline p; getline q;
+        if [ "{params.nreads}" -eq 0 ]; then
+            : > {output.r1}
+            : > {output.r2}
 
-                # decide mate by header suffix /1 or /2 (before end or whitespace)
-                mate = 0
-                if (h ~ /\/1(\s*$)/)      mate = 1;
-                else if (h ~ /\/2(\s*$)/) mate = 2;
+        else:
 
-                if (mate==1) {
-                    printf "%s\n%s\n%s\n%s\n", h,s,p,q | cmd1;
-                } else if (mate==2) {
-                    printf "%s\n%s\n%s\n%s\n", h,s,p,q | cmd2;
+            zcat -f {input} | \
+            awk -v R1="{output.r1}" -v R2="{output.r2}" '
+                BEGIN{
+                    cmd1 = "gzip -c -p {threads} > " R1;
+                    cmd2 = "gzip -c -p {threads} > " R2;
                 }
-                # else: silently drop non-/1,/2 headers; or add a third output if desired
-            }
-            END{
-                close(cmd1); close(cmd2);
-            }'
+                {
+                    # read one FASTQ record (4 lines)
+                    h=$0; getline s; getline p; getline q;
+
+                    # decide mate by header suffix /1 or /2 (before end or whitespace)
+                    mate = 0
+                    if (h ~ /\/1(\s*$)/)      mate = 1;
+                    else if (h ~ /\/2(\s*$)/) mate = 2;
+
+                    if (mate==1) {
+                        printf "%s\n%s\n%s\n%s\n", h,s,p,q | cmd1;
+                    } else if (mate==2) {
+                        printf "%s\n%s\n%s\n%s\n", h,s,p,q | cmd2;
+                    }
+                    # else: silently drop non-/1,/2 headers; or add a third output if desired
+                }
+                END{
+                    close(cmd1); close(cmd2);
+                }'
+
+        fi
         """
 
 rule merge_sample:
     input:
-        r1 = lambda w: expand(os.path.join(OUTDIR, "simulation", w.sample, "{gid}_1.fq.gz"), gid=IDS),
-        r2 = lambda w: expand(os.path.join(OUTDIR, "simulation", w.sample, "{gid}_2.fq.gz"), gid=IDS)
+        r1 = lambda w: [os.path.join(OUTDIR, "simulation", w.sample, "{gid}_1.fq.gz") for gid in IDS],
+        r2 = lambda w: [os.path.join(OUTDIR, "simulation", w.sample, "{gid}_2.fq.gz") for gid in IDS]
     output:
         r1 = os.path.join(OUTDIR, "reads", "{sample}_1.fq.gz"),
         r2 = os.path.join(OUTDIR, "reads", "{sample}_2.fq.gz")
