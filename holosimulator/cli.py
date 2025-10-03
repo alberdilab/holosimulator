@@ -14,7 +14,7 @@ from datetime import datetime
 from collections import defaultdict
 from holosimulator.utils import *
 from holosimulator.workflow.staging import staging
-from holosimulator.workflow.mutations import mutate_fasta_by_ani, write_outputs
+from holosimulator.workflow.mutations import mutate_fasta_by_ani_streaming, write_outputs
 
 #####
 # HoloSimulator installation path
@@ -201,7 +201,7 @@ def main():
     if args.module == "mutations":
         print(f"{HEADER1}Introducing mutations into genome...{RESET}", flush=True)
         try:
-            res = mutate_fasta_by_ani(
+            res = mutate_fasta_by_ani_streaming(
                 fasta_in=args.input,
                 target_ani=args.ani,   # accepts 0.97, 97, or "97%"
                 titv=args.titv,
