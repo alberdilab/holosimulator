@@ -13,7 +13,7 @@ dependencies:
   - PyYAML
   - requests
   - snakemake
-  - neat
+  - art_modern==1.1.6
   - pip
   - pip:
       - git+https://github.com/alberdilab/holosimulator.git

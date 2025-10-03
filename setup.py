@@ -13,14 +13,12 @@ setup(
         "pandas",
         "argparse",
         "PyYAML",
-        "requests",
-        "snakemake==9.11.6",
-        "snakemake-executor-plugin-slurm==1.8.0"
+        "requests"
     ],
     entry_points={
         "console_scripts": [
             "holosimulator=holosimulator.cli:main",
         ],
     },
-    python_requires=">=3.11",
+    python_requires=">=3.6",
 )
