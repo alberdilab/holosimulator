@@ -14,6 +14,7 @@ from datetime import datetime
 from collections import defaultdict
 from holosimulator.utils import *
 from holosimulator.workflow.staging import staging
+from holosimulator.workflow.mutations import mutate_fasta_by_ani
 
 #####
 # HoloSimulator installation path
@@ -132,6 +133,17 @@ def main():
     subparser_transcriptomics.add_argument("-t", "--threads", default=1, help="Number of threads to use (Default: 1)")   
     subparser_transcriptomics.add_argument("--verbose", action="store_true", help="Print verbose output")   
 
+   # Arguments for Holotranscriptomics module
+    # Arguments for Mutations module
+    subparser_mutations = subparsers.add_parser("mutations", help="Accumulate SNPs in a genome to reach a target ANI")
+    subparser_mutations.add_argument("-i", "--input", required=True, help="Input genome FASTA")
+    subparser_mutations.add_argument("-o", "--output", required=True, help="Output mutated FASTA")
+    subparser_mutations.add_argument("-a", "--ani", required=True, help="Target ANI (e.g., 0.97, 97, or 97%)")
+    subparser_mutations.add_argument("-r", "--titv", type=float, default=2.0, help="Transition/Transversion ratio (default: 2.0)")
+    subparser_mutations.add_argument("-s", "--seed", type=int, default=None, help="Random seed for reproducibility")
+    subparser_mutations.add_argument("-v", "--vcf", default=None, help="Optional VCF output path for SNPs")
+    subparser_mutations.add_argument("-q", "--quiet", action="store_true", help="Suppress progress messages")
+
     # Arguments for unlock
     subparser_unlock = subparsers.add_parser("unlock", help="Unlock output directory")
     subparser_unlock.add_argument("-o", "--output", required=False, type=pathlib.Path, default=os.getcwd(), help="Output directory. Default is the directory from which drakkar is called.")
@@ -183,10 +195,38 @@ def main():
             sys.exit(2)
 
     ###
-    # Run pipeline
+    # Run mutations
     ###
 
-    if not args.module in ("unlock", "update"):
+    if args.module == "mutations":
+        print(f"{HEADER1}Accumulating mutations to genome...{RESET}", flush=True)
+        try:
+            result = mutate_fasta_by_ani(
+                fasta_in=args.input,
+                fasta_out=args.output,
+                target_ani=args.ani,
+                titv=args.titv,
+                seed=args.seed,
+                vcf_out=args.vcf,
+            )
+            if not args.quiet:
+                print(f"[{ts()}] {INFO}Mutable positions: {result['total_mutable']}{RESET}", flush=True)
+                print(f"[{ts()}] {INFO}Applied SNPs: {result['snp_count']}{RESET}", flush=True)
+                print(f"[{ts()}] {INFO}Achieved ANI ≈ {result['achieved_ani']:.6f}{RESET}", flush=True)
+                print(f"[{ts()}] {HEADER1}Mutated FASTA → {args.output}{RESET}", flush=True)
+                if args.vcf:
+                    print(f"[{ts()}] {HEADER1}VCF → {args.vcf}{RESET}", flush=True)
+        except Exception as e:
+            print(f"{ERROR}[Mutations] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
+            sys.exit(1)
+        # Exit after completing mutations (don’t fall through to read simulation)
+        return
+
+    ###
+    # Run read simulation
+    ###
+
+    if args.module in ("genomics", "transcriptomics"):
 
         GENOMES_JSON =  "genomes.json"
         GENES_JSON = "genes.json"
@@ -258,10 +298,6 @@ def main():
                 GENES_JSON, 
                 args.sequencing_model,
                 args.seed)
-        ###
-        # Run snakemake
-        ###
-
 
 
 if __name__ == "__main__":

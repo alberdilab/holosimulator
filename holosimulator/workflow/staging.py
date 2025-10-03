@@ -104,11 +104,11 @@ def staging(json_path: str | Path, outdir: str | Path, *, overwrite: bool = Fals
         fa = genomes_dir / f"{gid}.fa"
 
         if fa.exists() and fa.stat().st_size > 0 and not overwrite:
-            _log(f"[skip] {gid} already present -> {fa}")
+            _log(f"[Skip download] {gid} already present -> {fa}")
             produced.append(fa)
             continue
 
-        _log(f"[download] {gid} from {src} -> {fa}")
+        _log(f"[Download genome] {gid} from {src} -> {fa}")
         _ensure_dir(fa.parent)
         _download_to_fa(src, fa)
         produced.append(fa)
