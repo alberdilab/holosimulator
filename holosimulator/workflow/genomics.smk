@@ -96,7 +96,7 @@ rule compress:
             : > {output.r1}
             : > {output.r2}
 
-        else:
+        else
 
             zcat -f {input} | \
             awk -v R1="{output.r1}" -v R2="{output.r2}" -v T={threads} '
