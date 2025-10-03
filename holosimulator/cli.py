@@ -209,6 +209,7 @@ def main():
                 target_ani=args.ani,
                 titv=args.titv,
                 seed=args.seed,
+                progress=True,
             )
             if not args.quiet:
                 print(f"    {INFO}Mutable positions: {res['total_mutable']}{RESET}", flush=True)
