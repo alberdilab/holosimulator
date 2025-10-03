@@ -62,7 +62,7 @@ rule simulate:
             GENOME_SIZE=$(CAT "$GENOME" | awk 'BEGIN{{s=0}} /^>/{{next}} {{s+=length($0)}} END{{printf "%.0f\n", s}}')
             READ_LEN=150
             TOTAL_BASES=$(( {params.nreads} * 2 * READ_LEN ))
-            FCOV=$(awk -v b="$TOTAL_BASES" -v g="$GENOME_SIZE" 'BEGIN{ if (g <= 0) { printf "0.000000"; exit } printf "%.6f", b/g }')
+            FCOV=$(awk -v b="$TOTAL_BASES" -v g="$GENOME_SIZE" 'BEGIN{{ if (g <= 0) {{ printf "0.000000"; exit }} printf "%.6f", b/g }}')
 
             art_modern \
                 --mode wgs \
