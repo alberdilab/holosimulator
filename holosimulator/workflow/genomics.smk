@@ -71,7 +71,7 @@ rule simulate:
                 --o-fastq {output} \
                 --parallel {threads} \
                 --builtin_qual_file HiSeq2500_150bp \
-		        --i-fcov $"FCOV" \
+		        --i-fcov "$FCOV" \
 		        --pe_frag_dist_mean 400 \
 		        --pe_frag_dist_std_dev 30 \
                 --read_len 150
