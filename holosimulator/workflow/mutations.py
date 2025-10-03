@@ -1,18 +1,25 @@
-# mutations_streaming.py
+# mutations.py
 from __future__ import annotations
-import os, time, random, gzip
+import os, time, random, gzip, tempfile
 from typing import IO, Optional
 from holosimulator.utils import is_url, download_to_temp, ts
+
+# Optional acceleration (exact hypergeometric per chunk)
+try:
+    import numpy as _np  # noqa: F401
+    _HAVE_NUMPY = True
+except Exception:
+    _np = None
+    _HAVE_NUMPY = False
 
 ###
 # Define text colors
 ###
-
 HEADER1 = "\033[1;95m"
-ERROR = "\033[1;31m"
-INFO = "\033[1;34m"
-RESET = "\033[0m"
-END = "\033[1;92m"
+ERROR   = "\033[1;31m"
+INFO    = "\033[1;34m"
+RESET   = "\033[0m"
+END     = "\033[1;92m"
 
 def _open_maybe_gzip(path: str, mode: str) -> IO:
     return gzip.open(path, mode) if str(path).endswith((".gz", ".bgz", ".bgzip")) else open(path, mode)
@@ -51,7 +58,7 @@ class _Progress:
         if not self.enabled: return
         self.done += n
         now = time.time()
-        # Print at most ~2 times per second, and only if progress advanced
+        # Print at most ~2 times per second
         if now - self._last_print_t >= 0.5:
             pct = 100.0 * min(self.done, self.total) / self.total
             barw = 30
@@ -75,13 +82,38 @@ def _count_mutable_total(in_path: str) -> int:
             if not line or line[0] == ">":  # header
                 continue
             s = line.strip()
-            # manual count is faster than sum with function call per char
-            # but this is clear and still fast enough
             for ch in s:
                 total += 1 if _is_mutable(ch) else 0
     return total
 
-# ---------- main streaming function with progress ----------
+# ---------- hypergeometric draw per chunk ----------
+
+def _draw_k_in_block(R: int, K: int, m: int, np_rng: "_np.random.Generator|None", py_rng: random.Random) -> int:
+    """
+    Decide how many SNPs (X) to place in a block of size m, given R remaining mutable and K remaining SNPs.
+    - If NumPy is available, use exact Hypergeometric.
+    - Else, fallback to Binomial(m, K/R) per-trial (accurate for small m), clamped.
+    """
+    if m <= 0 or R <= 0 or K <= 0:
+        return 0
+    if np_rng is not None:
+        # numpy hypergeometric: number of 'good' draws among m samples without replacement
+        X = int(np_rng.hypergeometric(ngood=K, nbad=R - K, nsample=m))
+        if X > K: X = K
+        return X
+    # Fallback: per-trial Bernoulli (Binomial approx)
+    p = K / R
+    # quick skip for very small p and large m
+    if p < 1e-6 and m >= 1024 and py_rng.random() > (p * m):
+        return 0
+    succ = 0
+    for _ in range(m):
+        if py_rng.random() < p:
+            succ += 1
+    if succ > K: succ = K
+    return succ
+
+# ---------- main streaming function with chunking ----------
 
 def mutate_fasta_by_ani_streaming(
     *,
@@ -93,8 +125,10 @@ def mutate_fasta_by_ani_streaming(
     seed: Optional[int] = None,
     wrap: int = 80,
     progress: bool = True,
+    chunk_size: int = 65536,        # NEW: process per-chunk (fast when X==0)
 ) -> dict:
     rng = random.Random(seed)
+    np_rng = _np.random.default_rng(seed) if _HAVE_NUMPY else None
     ani = _parse_ani(target_ani)
     divergence = 1.0 - ani
 
@@ -112,8 +146,7 @@ def mutate_fasta_by_ani_streaming(
         total_mutable_all = _count_mutable_total(in_path) if progress else 0
 
         if total_mutable_all > 0:
-            divergence = 1.0 - ani
-            expected_snps = int(round(divergence * total_mutable_all))
+            expected_snps = int(round((1.0 - ani) * total_mutable_all))
             print(f"    {INFO}Mutable positions: {total_mutable_all:,}{RESET}", flush=True)
             print(f"    {INFO}Expected SNPs (target ANI={ani:.4f}): {expected_snps:,}{RESET}", flush=True)
 
@@ -128,33 +161,95 @@ def mutate_fasta_by_ani_streaming(
             out_vcf.write("##INFO=<ID=ANI,Number=1,Type=Float,Description=\"Target ANI used for mutation\">\n")
             out_vcf.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
 
+        # helper for FASTA wrapping across chunks/contigs
+        fa_col = 0
+        def _fa_write(s: str):
+            nonlocal fa_col
+            if wrap <= 0:
+                out_fa.write(s)
+                return
+            i = 0
+            n = len(s)
+            while i < n:
+                take = min(wrap - fa_col, n - i)
+                out_fa.write(s[i:i + take])
+                fa_col += take
+                i += take
+                if fa_col >= wrap:
+                    out_fa.write("\n")
+                    fa_col = 0
+
         total_mutable = 0
         total_snps = 0
 
+        # --- Stream input, split into per-contig temp files (no RAM blow-up) ---
+        print(f"[{ts()}] Parsing contigs", flush=True)
         with _open_maybe_gzip(in_path, "rt") as fh:
             header = None
-            seq_chunks = []
+            tmpf = None
+            tmp_contig_path = None
+            contig_mutable = 0
+            contig_len = 0
+
+            def _finalize_contig():
+                nonlocal header, tmpf, tmp_contig_path, contig_mutable, contig_len
+                if header is None or tmpf is None:
+                    return
+                tmpf.close()
+                # per-contig K
+                K_target = int(round(divergence * contig_mutable))
+                # write FASTA header
+                out_fa.write(f">{header} | mutated_snp={K_target};target_ani={ani:.6f}\n")
+                # mutate from temp file in chunks
+                _mutate_contig_from_tmp(
+                    header=header,
+                    tmp_path=tmp_contig_path,
+                    N_mutable=contig_mutable,
+                    K_target=K_target,
+                    titv=titv,
+                    rng=rng,
+                    np_rng=np_rng,
+                    out_fa_write=_fa_write,
+                    out_vcf=out_vcf,
+                    ani=ani,
+                    wrap=wrap,
+                    prog=prog,
+                    chunk_size=chunk_size
+                )
+                # finalize line break if needed
+                if wrap > 0 and fa_col != 0:
+                    out_fa.write("\n")
+                    fa_col = 0
+                # update totals
+                nonlocal total_mutable, total_snps
+                total_mutable += contig_mutable
+                total_snps += K_target
+                # cleanup
+                try: os.remove(tmp_contig_path)
+                except OSError: pass
+                # reset
+                header, tmpf, tmp_contig_path, contig_mutable, contig_len = None, None, None, 0, 0
+
             for line in fh:
                 if line.startswith(">"):
-                    if header is not None:
-                        seq_str = "".join(seq_chunks)
-                        N = sum(1 for ch in seq_str if _is_mutable(ch))
-                        k = int(round(divergence * N))
-                        _stream_mutate_and_write(header, seq_str, N, k, titv, rng, out_fa, out_vcf, ani, wrap, prog)
-                        total_mutable += N
-                        total_snps += k
+                    _finalize_contig()
                     header = line[1:].strip()
-                    seq_chunks = []
+                    fd, tmp_contig_path = tempfile.mkstemp(prefix="holosim_contig_", suffix=".seq")
+                    tmpf = os.fdopen(fd, "wt")
+                    contig_mutable = 0
+                    contig_len = 0
                 else:
-                    seq_chunks.append(line.strip())
+                    s = line.strip()
+                    if not s: continue
+                    tmpf.write(s)
+                    contig_len += len(s)
+                    # count mutable in this chunk
+                    for ch in s:
+                        if _is_mutable(ch):
+                            contig_mutable += 1
 
-            if header is not None:
-                seq_str = "".join(seq_chunks)
-                N = sum(1 for ch in seq_str if _is_mutable(ch))
-                k = int(round(divergence * N))
-                _stream_mutate_and_write(header, seq_str, N, k, titv, rng, out_fa, out_vcf, ani, wrap, prog)
-                total_mutable += N
-                total_snps += k
+            # finalize last contig
+            _finalize_contig()
 
         out_fa.close()
         if out_vcf:
@@ -173,50 +268,61 @@ def mutate_fasta_by_ani_streaming(
             try: os.remove(tmp_path)
             except OSError: pass
 
-def _stream_mutate_and_write(
+def _mutate_contig_from_tmp(
+    *,
     header: str,
-    seq: str,
+    tmp_path: str,
     N_mutable: int,
     K_target: int,
     titv: float,
     rng: random.Random,
-    out_fa: IO,
+    np_rng: "_np.random.Generator|None",
+    out_fa_write,               # callable that handles wrap-aware writing
     out_vcf: Optional[IO],
     ani: float,
     wrap: int,
     prog: Optional[_Progress],
+    chunk_size: int,
 ) -> None:
-    annotated = f"{header} | mutated_snp={K_target};target_ani={ani:.6f}"
-    out_fa.write(f">{annotated}\n")
-
+    """
+    Read the contig sequence from a temp file in fixed-size chunks,
+    allocate SNPs per-chunk via Hypergeometric (exact with NumPy; otherwise binomial approx),
+    mutate only those positions, and stream out FASTA/VCF.
+    """
     k_remaining = K_target
-    r_remaining = N_mutable
-    pos1 = 0
+    R_remaining = N_mutable
+    pos1 = 0  # 1-based within contig (over all bases)
 
-    out_buf = []
-    out_buf_len = 0
+    with open(tmp_path, "rt") as cf:
+        while True:
+            block = cf.read(chunk_size)
+            if not block:
+                break
+            # indices of mutable bases within this block
+            m_idx = [i for i, ch in enumerate(block) if _is_mutable(ch)]
+            m = len(m_idx)
 
-    for ch in seq:
-        pos1 += 1
-        if _is_mutable(ch):
-            # sequential selection without replacement
-            if k_remaining > 0 and rng.random() < (k_remaining / r_remaining):
-                ref_base = ch.upper()
-                alt_base = _mutate_base(ch, titv, rng)
-                out_buf.append(alt_base)
-                k_remaining -= 1
-                if out_vcf:
-                    out_vcf.write(f"{header}\t{pos1}\t.\t{ref_base}\t{alt_base.upper()}\t.\tPASS\tANI={ani:.6f}\n")
+            X = _draw_k_in_block(R_remaining, k_remaining, m, np_rng, rng) if m else 0
+
+            if X == 0:
+                # fast path: bulk copy
+                out_fa_write(block)
+                if m and prog: prog.update(m)
             else:
-                out_buf.append(ch)
-            r_remaining -= 1
-            if prog: prog.update(1)  # advance by one mutable base processed
-        else:
-            out_buf.append(ch)
+                out_chars = list(block)
+                choose = set(rng.sample(m_idx, X))
+                for j in choose:
+                    ref = out_chars[j]
+                    alt = _mutate_base(ref, titv, rng)
+                    out_chars[j] = alt
+                    if out_vcf:
+                        out_vcf.write(f"{header}\t{pos1 + j + 1}\t.\t{ref.upper()}\t{alt.upper()}\t.\tPASS\tANI={ani:.6f}\n")
+                out_fa_write("".join(out_chars))
+                if prog: prog.update(m)
 
-        if wrap and len(out_buf) - out_buf_len >= wrap:
-            out_fa.write("".join(out_buf[out_buf_len: out_buf_len + wrap]) + "\n")
-            out_buf_len += wrap
+            if m:
+                R_remaining -= m
+            pos1 += len(block)
 
-    if out_buf_len < len(out_buf):
-        out_fa.write("".join(out_buf[out_buf_len:]) + "\n")
+# (legacy helper retained for reference; no longer used)
+# def _stream_mutate_and_write(...): pass

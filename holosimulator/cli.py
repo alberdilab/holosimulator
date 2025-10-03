@@ -215,7 +215,6 @@ def main():
                 print(f"    {INFO}Mutable positions: {res['total_mutable']}{RESET}", flush=True)
                 print(f"    {INFO}Applied SNPs: {res['snp_count']}{RESET}", flush=True)
                 print(f"    {INFO}Achieved ANI ≈ {res['achieved_ani']:.6f}{RESET}", flush=True)
-                print(f"    {INFO}Mutable positions: {res['total_mutable']}{RESET}", flush=True)
                 if args.vcf:
                     print(f"    {HEADER1}VCF:{RESET} {args.vcf}", flush=True)
                 print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
