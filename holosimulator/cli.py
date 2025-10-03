@@ -199,7 +199,7 @@ def main():
     ###
 
     if args.module == "mutations":
-        print(f"{HEADER1}Accumulating mutations to genome...{RESET}", flush=True)
+        print(f"{HEADER1}Introducing mutations into genome...{RESET}", flush=True)
         try:
             res = mutate_fasta_by_ani(
                 fasta_in=args.input,

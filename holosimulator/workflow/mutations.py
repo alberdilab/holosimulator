@@ -1,169 +1,173 @@
+# holosimulator/workflow/mutations_streaming.py
 from __future__ import annotations
-import random
-from dataclasses import dataclass
-from typing import Iterable, List, Tuple, Dict
+import random, gzip
+from typing import Tuple, IO, Iterable, Optional
 
-@dataclass
-class MutationResult:
-    mutated_records: List[Tuple[str, str]]  # (header, seq)
-    snp_count: int
-    total_mutable: int
-    achieved_ani: float
-    chosen_sites: int  # same as snp_count, for clarity
+def _open_maybe_gzip(path: str, mode: str) -> IO:
+    if str(path).endswith((".gz", ".bgz", ".bgzip")):
+        # text mode with gzip, line buffering handled by Python
+        return gzip.open(path, mode if "b" in mode else mode.replace("t", "") + "t")
+    return open(path, mode)
 
-def _parse_fasta(path: str) -> Iterable[Tuple[str, str]]:
-    header, chunks = None, []
-    with open(path, "r") as fh:
-        for line in fh:
-            line = line.rstrip("\n")
-            if not line:
-                continue
-            if line.startswith(">"):
-                if header is not None:
-                    yield header, "".join(chunks)
-                header = line[1:].strip()
-                chunks = []
-            else:
-                chunks.append(line.strip())
-        if header is not None:
-            yield header, "".join(chunks)
+def _is_mutable(b: str) -> bool:
+    return b in "ACGTacgt"
 
-def _write_fasta(records: Iterable[Tuple[str, str]], path: str) -> None:
-    with open(path, "w") as out:
-        for h, s in records:
-            out.write(f">{h}\n")
-            for i in range(0, len(s), 80):
-                out.write(s[i:i+80] + "\n")
+def _mutate_base(b: str, titv: float, rng: random.Random) -> str:
+    b_u = b.upper()
+    if b_u not in "ACGT":
+        return b
+    transitions = {"A":"G", "G":"A", "C":"T", "T":"C"}
+    tv = {"A":["C","T"], "G":["C","T"], "C":["A","G"], "T":["A","G"]}
+    total = titv + 2.0
+    r = rng.random() * total
+    alt_u = transitions[b_u] if r < titv else (tv[b_u][0] if rng.random() < 0.5 else tv[b_u][1])
+    # preserve original case
+    return alt_u if b.isupper() else alt_u.lower()
 
 def _parse_ani(val: str | float) -> float:
-    s = str(val).strip().replace("%", "")
+    s = str(val).strip().replace("%","")
     x = float(s)
-    if x > 1.0:
-        x /= 100.0
+    if x > 1.0: x /= 100.0
     if not (0.0 <= x <= 1.0):
-        raise ValueError("ANI must be in [0,1] or [0,100]")
+        raise ValueError("ANI must be in [0,1] or [0–100%]")
     return x
 
-def _alt_base(ref: str, titv_ratio: float, rng: random.Random) -> str:
-    ref = ref.upper()
-    if ref not in "ACGT":
-        return ref
-    transitions = {"A": "G", "G": "A", "C": "T", "T": "C"}
-    transversions = {
-        "A": ["C", "T"], "G": ["C", "T"],
-        "C": ["A", "G"], "T": ["A", "G"]
-    }
-    total = titv_ratio + 2.0
-    r = rng.random() * total
-    if r < titv_ratio:
-        return transitions[ref]
-    return transversions[ref][0] if rng.random() < 0.5 else transversions[ref][1]
-
-def mutate_fasta_by_ani(
-    fasta_in: str,
-    target_ani: float | str,
-    *,
-    titv: float = 2.0,
-    seed: int | None = None,
-) -> MutationResult:
-    """Return mutated sequences hitting the requested ANI via random SNPs."""
-    rng = random.Random(seed)
-    ani = _parse_ani(target_ani)
-
-    records = list(_parse_fasta(fasta_in))
-    if not records:
-        raise ValueError("No sequences found in FASTA")
-
-    contigs: List[Tuple[str, List[str]]] = []
-    mutable_positions: List[Tuple[int, int]] = []
-    for idx, (hdr, seq) in enumerate(records):
-        s = seq.upper()
-        contigs.append((hdr, list(s)))
-        for pos, b in enumerate(s):
-            if b in "ACGT":
-                mutable_positions.append((idx, pos))
-
-    total = len(mutable_positions)
-    if total == 0:
-        raise ValueError("No A/C/G/T positions to mutate")
-
-    divergence = 1.0 - ani
-    target_snps = round(divergence * total)
-    target_snps = max(0, min(target_snps, total))
-
-    chosen_idx = set(rng.sample(range(total), target_snps))
-    per_contig: Dict[int, int] = {}
-
-    for i, (cidx, pos) in enumerate(mutable_positions):
-        if i not in chosen_idx:
-            continue
-        ref = contigs[cidx][1][pos]
-        alt = _alt_base(ref, titv, rng)
-        if alt == ref:
-            # very unlikely, but ensure a change
-            for base in "ACGT":
-                if base != ref:
-                    alt = base
-                    break
-        contigs[cidx][1][pos] = alt
-        per_contig[cidx] = per_contig.get(cidx, 0) + 1
-
-    mutated_records: List[Tuple[str, str]] = []
-    for cidx, (hdr, seq_list) in enumerate(contigs):
-        mutcount = per_contig.get(cidx, 0)
-        new_hdr = f"{hdr} | mutated_snp={mutcount};target_ani={ani:.6f}"
-        if seed is not None:
-            new_hdr += f";seed={seed}"
-        mutated_records.append((new_hdr, "".join(seq_list)))
-
-    achieved_ani = 1.0 - (len(chosen_idx) / total) if total else 1.0
-
-    return MutationResult(
-        mutated_records=mutated_records,
-        snp_count=len(chosen_idx),
-        total_mutable=total,
-        achieved_ani=achieved_ani,
-        chosen_sites=len(chosen_idx),
-    )
-
-def write_outputs(
-    result: MutationResult,
+def mutate_fasta_by_ani_streaming(
     *,
     fasta_in: str,
     fasta_out: str,
-    vcf_out: str | None,
+    vcf_out: Optional[str],
     target_ani: float | str,
-) -> None:
-    """Write the mutated FASTA and (optionally) a VCF by re-diffing input vs mutated."""
-    # Write FASTA
-    _write_fasta(result.mutated_records, fasta_out)
-
-    if not vcf_out:
-        return
-
-    # Load originals to recover REF (we only stored the mutated sequences in result)
-    originals = {h: s for h, s in _parse_fasta(fasta_in)}
-
-    # Normalize ANI string → float for INFO field
+    titv: float = 2.0,
+    seed: Optional[int] = None,
+    wrap: int = 80,  # line wrap for output FASTA
+) -> dict:
+    """
+    Memory-efficient, exact-ANI mutation:
+      - Two passes per contig (count → mutate).
+      - O(1) memory; writes FASTA/VCF as it streams.
+    Returns summary dict with totals and achieved ANI.
+    """
+    rng = random.Random(seed)
     ani = _parse_ani(target_ani)
+    divergence = 1.0 - ani
 
-    with open(vcf_out, "w") as v:
-        v.write("##fileformat=VCFv4.2\n")
-        v.write("##source=holosimulator.workflow.mutations\n")
-        v.write("##INFO=<ID=ANI,Number=1,Type=Float,Description=\"Target ANI used for mutation\">\n")
-        v.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
+    # Open output handles
+    out_fa = _open_maybe_gzip(fasta_out, "wt")
+    out_vcf = _open_maybe_gzip(vcf_out, "wt") if vcf_out else None
 
-        for h_mut, s_mut in result.mutated_records:
-            # Strip our annotation suffix so we can look up the original header key
-            h_key = h_mut.split("|", 1)[0].strip()
-            if h_key not in originals:
-                # Header mismatch; skip safely
-                continue
-            s_ref = originals[h_key].upper()
-            s_alt = s_mut.upper()
+    # Write VCF header if requested
+    if out_vcf:
+        out_vcf.write("##fileformat=VCFv4.2\n")
+        out_vcf.write("##source=holosimulator.workflow.mutations_streaming\n")
+        out_vcf.write("##INFO=<ID=ANI,Number=1,Type=Float,Description=\"Target ANI used for mutation\">\n")
+        out_vcf.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
 
-            # SNP-only; lengths should match. If not, diff over the shared span.
-            L = min(len(s_ref), len(s_alt))
-            for pos1, (r, a) in enumerate(zip(s_ref[:L], s_alt[:L]), start=1):
-                if r in "ACGT" and a in "ACGT" and r != a:
-                    v.write(f"{h_key}\t{pos1}\t.\t{r}\t{a}\t.\tPASS\tANI={ani:.6f}\n")
+    total_mutable = 0
+    total_snps = 0
+
+    with _open_maybe_gzip(fasta_in, "rt") as fh:
+        header = None
+        seq_chunks = []  # we keep only the current contig in chunks for pass1 counting
+        for line in fh:
+            if line.startswith(">"):
+                # flush previous contig if present
+                if header is not None:
+                    # PASS 1: count mutable
+                    seq_str = "".join(seq_chunks)
+                    N = sum(1 for ch in seq_str if _is_mutable(ch))
+                    k = int(round(divergence * N))
+
+                    # PASS 2: stream-mutate & write
+                    _stream_mutate_and_write(
+                        header, seq_str, N, k, titv, rng, out_fa, out_vcf, ani, wrap
+                    )
+
+                    total_mutable += N
+                    total_snps += k
+
+                # start new contig
+                header = line[1:].strip()
+                seq_chunks = []
+            else:
+                seq_chunks.append(line.strip())
+
+        # flush last contig
+        if header is not None:
+            seq_str = "".join(seq_chunks)
+            N = sum(1 for ch in seq_str if _is_mutable(ch))
+            k = int(round(divergence * N))
+            _stream_mutate_and_write(
+                header, seq_str, N, k, titv, rng, out_fa, out_vcf, ani, wrap
+            )
+            total_mutable += N
+            total_snps += k
+
+    out_fa.close()
+    if out_vcf:
+        out_vcf.close()
+
+    achieved_ani = 1.0 - (total_snps / total_mutable if total_mutable else 0.0)
+    return {
+        "total_mutable": total_mutable,
+        "snp_count": total_snps,
+        "achieved_ani": achieved_ani,
+        "target_ani": ani,
+    }
+
+def _stream_mutate_and_write(
+    header: str,
+    seq: str,
+    N_mutable: int,
+    K_target: int,
+    titv: float,
+    rng: random.Random,
+    out_fa: IO,
+    out_vcf: Optional[IO],
+    ani: float,
+    wrap: int,
+) -> None:
+    """
+    Given a contig sequence (string), mutate exactly K_target of the N_mutable
+    A/C/G/T positions using streaming selection without replacement, and write
+    FASTA (wrapped) and VCF rows as we go. Memory: O(1).
+    """
+    # FASTA header annotated (no need to know per-contig K beforehand—but we do)
+    annotated = f"{header} | mutated_snp={K_target};target_ani={ani:.6f}"
+    out_fa.write(f">{annotated}\n")
+
+    k_remaining = K_target
+    r_remaining = N_mutable
+    pos1 = 0  # 1-based genomic position within contig
+
+    # We also need the REF base for VCF; since we have seq, we can take it
+    out_buf = []
+    out_buf_len = 0
+
+    for ch in seq:
+        pos1 += 1
+        if _is_mutable(ch):
+            # accept with probability k_remaining / r_remaining
+            if k_remaining > 0 and rng.random() < (k_remaining / r_remaining):
+                ref_base = ch.upper()
+                alt_base = _mutate_base(ch, titv, rng)
+                out_buf.append(alt_base)
+                k_remaining -= 1
+                if out_vcf:
+                    out_vcf.write(
+                        f"{header}\t{pos1}\t.\t{ref_base}\t{alt_base.upper()}\t.\tPASS\tANI={ani:.6f}\n"
+                    )
+            else:
+                out_buf.append(ch)
+            r_remaining -= 1
+        else:
+            out_buf.append(ch)
+
+        # Wrap output lines as we stream
+        if wrap and len(out_buf) - out_buf_len >= wrap:
+            out_fa.write("".join(out_buf[out_buf_len: out_buf_len + wrap]) + "\n")
+            out_buf_len += wrap
+
+    # flush any residual chars
+    if out_buf_len < len(out_buf):
+        out_fa.write("".join(out_buf[out_buf_len:]) + "\n")
