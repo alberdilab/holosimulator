@@ -40,10 +40,8 @@ rule simulate:
     input:
         os.path.join(OUTDIR, "genomes", "{gid}.fa")
     output:
-        r1 = temp(os.path.join(OUTDIR, "iss/{sample}/{gid}/reads_R1.fastq")),
-        r2 = temp(os.path.join(OUTDIR, "iss/{sample}/{gid}/reads_R2.fastq"))
+        temp(os.path.join(OUTDIR, "simulation/{sample}/{gid}.fastq"))
     params:
-        model    = SEQUENCING_MODEL,
         seed     = SEED,
         organism = lambda w: ID_TO_ORG[w.gid],
         # reads = 2 × pairs from JSON
@@ -59,42 +57,104 @@ rule simulate:
             : > {output.r1}
             : > {output.r2}
         else
-            iss generate \
-                --genomes {input} \
-                --n_reads {params.nreads} \
-                --model {params.model} \
-                --cpus {threads} \
-                --seed {params.seed} \
-                --output iss/{wildcards.sample}/{wildcards.gid}/reads
+            art_modern \
+                --mode wgs \
+                --lc pe \
+                --i-file {input} \
+                --o-fastq {output}
+                --i-batch_size {params.nreads} \
+                --parallel {threads} \
+                --builtin_qual_file HiSeq2500_150bp \
+		        --i-fcov 10 \
+		        --pe_frag_dist_mean 400 \
+		        --pe_frag_dist_std_dev 30 \
+                --read_len 150
 
-            rm -f iss/{wildcards.sample}/{wildcards.gid}/reads_abundance.txt
-            rm -f iss/{wildcards.sample}/{wildcards.gid}/reads.iss*.vcf
         fi
         """
 
+# Old simulate with iss
+        # rule simulate:
+        #     input:
+        #         os.path.join(OUTDIR, "genomes", "{gid}.fa")
+        #     output:
+        #         r1 = temp(os.path.join(OUTDIR, "iss/{sample}/{gid}/reads_R1.fastq")),
+        #         r2 = temp(os.path.join(OUTDIR, "iss/{sample}/{gid}/reads_R2.fastq"))
+        #     params:
+        #         model    = SEQUENCING_MODEL,
+        #         seed     = SEED,
+        #         organism = lambda w: ID_TO_ORG[w.gid],
+        #         # reads = 2 × pairs from JSON
+        #         nreads   = lambda w: 2 * int(ABUND[ID_TO_ORG[w.gid]][w.sample])
+        #     threads: 1
+        #     shell:
+        #         r"""
+        #         set -euo pipefail
+        #         mkdir -p "$(dirname {output.r1})"
+        #         echo "[`date '+%Y-%m-%d %H:%M:%S'`] [Simulate reads] Simulating reads from genome {wildcards.gid} for sample {wildcards.sample}"
+        #
+        #         if [ "{params.nreads}" -eq 0 ]; then
+        #             : > {output.r1}
+        #             : > {output.r2}
+        #         else
+        #             iss generate \
+        #                 --genomes {input} \
+        #                 --n_reads {params.nreads} \
+        #                 --model {params.model} \
+        #                 --cpus {threads} \
+        #                 --seed {params.seed} \
+        #                 --output iss/{wildcards.sample}/{wildcards.gid}/reads
+        #
+        #             rm -f iss/{wildcards.sample}/{wildcards.gid}/reads_abundance.txt
+        #             rm -f iss/{wildcards.sample}/{wildcards.gid}/reads.iss*.vcf
+        #         fi
+        #         """
+
 rule compress:
     input:
-        r1 = os.path.join(OUTDIR, "iss/{sample}/{gid}/reads_R1.fastq"),
-        r2 = os.path.join(OUTDIR, "iss/{sample}/{gid}/reads_R2.fastq")
+        os.path.join(OUTDIR, "simulation/{sample}/{gid}.fastq")
     output:
-        r1 = temp(os.path.join(OUTDIR, "iss/{sample}/{gid}/reads_R1.fq.gz")),
-        r2 = temp(os.path.join(OUTDIR, "iss/{sample}/{gid}/reads_R2.fq.gz"))
+        r1 = temp(os.path.join(OUTDIR, "simulation/{sample}/{gid}_1.fq.gz")),
+        r2 = temp(os.path.join(OUTDIR, "simulation/{sample}/{gid}_2.fq.gz"))
     threads: 1
     shell:
         r"""
         set -euo pipefail
-        echo "[`date '+%Y-%m-%d %H:%M:%S'`] [Compress reads] Compressing reads from genom {wildcards.gid} for sample {wildcards.sample}"
-        gzip -c "{input.r1}" > "{output.r1}"
-        gzip -c "{input.r2}" > "{output.r2}"
+
+        zcat -f {input} | \
+        awk -v R1="{output.r1}" -v R2="{output.r2}" '
+            BEGIN{
+                cmd1 = "gzip -c -p {threads} > " R1;
+                cmd2 = "gzip -c -p {threads} > " R2;
+            }
+            {
+                # read one FASTQ record (4 lines)
+                h=$0; getline s; getline p; getline q;
+
+                # decide mate by header suffix /1 or /2 (before end or whitespace)
+                mate = 0
+                if (h ~ /\/1(\s*$)/)      mate = 1;
+                else if (h ~ /\/2(\s*$)/) mate = 2;
+
+                if (mate==1) {
+                    printf "%s\n%s\n%s\n%s\n", h,s,p,q | cmd1;
+                } else if (mate==2) {
+                    printf "%s\n%s\n%s\n%s\n", h,s,p,q | cmd2;
+                }
+                # else: silently drop non-/1,/2 headers; or add a third output if desired
+            }
+            END{
+                close(cmd1); close(cmd2);
+            }'
         """
 
 rule merge_sample:
     input:
-        r1 = lambda w: [os.path.join(OUTDIR, "iss", w.sample, gid, "reads_R1.fq.gz") for gid in IDS],
-        r2 = lambda w: [os.path.join(OUTDIR, "iss", w.sample, gid, "reads_R2.fq.gz") for gid in IDS]
+        r1 = lambda w: [os.path.join(OUTDIR, "simulation", w.sample, "{gid}_1.fq.gz") for gid in IDS],
+        r2 = lambda w: [os.path.join(OUTDIR, "simulation", w.sample, "{gid}_2.fq.gz") for gid in IDS]
     output:
-        r1 = os.path.join(OUTDIR, "{sample}_1.fq.gz"),
-        r2 = os.path.join(OUTDIR, "{sample}_2.fq.gz")
+        r1 = os.path.join(OUTDIR, "reads", "{sample}_1.fq.gz"),
+        r2 = os.path.join(OUTDIR, "reads", "{sample}_2.fq.gz")
     threads: 1
     wildcard_constraints:
         sample = "|".join(re.escape(s) for s in SAMPLES)
