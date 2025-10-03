@@ -40,6 +40,7 @@ HEADER1 = "\033[1;95m"
 ERROR = "\033[1;31m"
 INFO = "\033[1;34m"
 RESET = "\033[0m"
+END = "\033[1;92m"
 
 #####
 # Function definitions
@@ -136,7 +137,7 @@ def main():
    # Arguments for Holotranscriptomics module
     # Arguments for Mutations module
     subparser_mutations = subparsers.add_parser("mutations", help="Accumulate SNPs in a genome to reach a target ANI")
-    subparser_mutations.add_argument("-i", "--input", required=True, help="Input genome FASTA")
+    subparser_mutations.add_argument("-i", "--input", required=True, help="Input genome FASTA (.fa/.fna[.gz]) or URL (http/https)")
     subparser_mutations.add_argument("-o", "--output", required=True, help="Output mutated FASTA")
     subparser_mutations.add_argument("-a", "--ani", required=True, help="Target ANI (e.g., 0.97, 97, or 97%)")
     subparser_mutations.add_argument("-r", "--titv", type=float, default=2.0, help="Transition/Transversion ratio (default: 2.0)")
@@ -199,7 +200,7 @@ def main():
     ###
 
     if args.module == "mutations":
-        print(f"{HEADER1}Simulating genomic divergence (target ANI={args.ani})...{RESET}", flush=True)
+        print(f"[{ts()}] {HEADER1}Simulating genomic divergence of ANI={args.ani})...{RESET}", flush=True)
         try:
             res = mutate_fasta_by_ani_streaming(
                 fasta_in=args.input,
@@ -210,12 +211,14 @@ def main():
                 seed=args.seed,
             )
             if not args.quiet:
-                print(f"[{ts()}] {INFO}Mutable positions: {res['total_mutable']}{RESET}", flush=True)
-                print(f"[{ts()}] {INFO}Applied SNPs: {res['snp_count']}{RESET}", flush=True)
-                print(f"[{ts()}] {INFO}Achieved ANI ≈ {res['achieved_ani']:.6f}{RESET}", flush=True)
-                print(f"[{ts()}] {HEADER1}Mutated FASTA → {args.output}{RESET}", flush=True)
+                print(f"    {INFO}Mutable positions: {res['total_mutable']}{RESET}", flush=True)
+                print(f"    {INFO}Applied SNPs: {res['snp_count']}{RESET}", flush=True)
+                print(f"    {INFO}Achieved ANI ≈ {res['achieved_ani']:.6f}{RESET}", flush=True)
+                print(f"    {INFO}Mutable positions: {res['total_mutable']}{RESET}", flush=True)
                 if args.vcf:
-                    print(f"[{ts()}] {HEADER1}VCF → {args.vcf}{RESET}", flush=True)
+                    print(f"    {HEADER1}VCF:{RESET} {args.vcf}", flush=True)
+                print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
+
         except Exception as e:
             print(f"{ERROR}[Mutations] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
             sys.exit(1)
@@ -270,9 +273,10 @@ def main():
                 GENOMES_JSON, 
                 args.sequencing_model,
                 args.seed)
+            print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
 
         if args.module == "transcriptomics":
-            print(f"{HEADER1}Calculating read allocation...{RESET}", flush=True)
+            print(f"[{ts()}] {HEADER1}Calculating read allocation...{RESET}", flush=True)
             genomics_to_transcriptomics_json(
                 GENOMES_JSON, 
                 GENES_JSON, 
@@ -288,7 +292,7 @@ def main():
                 },
                 pairs_to_reads=2)
 
-            print(f"{HEADER1}Simulating reads...{RESET}", flush=True)
+            print(f"[{ts()}] {HEADER1}Simulating reads...{RESET}", flush=True)
             run_transcriptomics(
                 args.module, 
                 Path(args.output).resolve(), 
@@ -296,6 +300,7 @@ def main():
                 GENES_JSON, 
                 args.sequencing_model,
                 args.seed)
+            print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 from __future__ import annotations
 import random, gzip
 from typing import Tuple, IO, Iterable, Optional
+from holosimulator.utils import is_url, download_to_temp
 
 def _open_maybe_gzip(path: str, mode: str) -> IO:
     if str(path).endswith((".gz", ".bgz", ".bgzip")):
@@ -34,86 +35,79 @@ def _parse_ani(val: str | float) -> float:
 
 def mutate_fasta_by_ani_streaming(
     *,
-    fasta_in: str,
+    fasta_in: str,          # local path OR http(s) URL
     fasta_out: str,
     vcf_out: Optional[str],
     target_ani: float | str,
     titv: float = 2.0,
     seed: Optional[int] = None,
-    wrap: int = 80,  # line wrap for output FASTA
+    wrap: int = 80,
 ) -> dict:
-    """
-    Memory-efficient, exact-ANI mutation:
-      - Two passes per contig (count → mutate).
-      - O(1) memory; writes FASTA/VCF as it streams.
-    Returns summary dict with totals and achieved ANI.
-    """
     rng = random.Random(seed)
     ani = _parse_ani(target_ani)
     divergence = 1.0 - ani
 
-    # Open output handles
-    out_fa = _open_maybe_gzip(fasta_out, "wt")
-    out_vcf = _open_maybe_gzip(vcf_out, "wt") if vcf_out else None
+    # --- NEW: resolve URL → temp file; remember for cleanup
+    tmp_path = None
+    in_path = fasta_in
+    if is_url(fasta_in):
+        tmp_path = download_to_temp(fasta_in)  # preserves ".fna.gz" etc
+        in_path = tmp_path
 
-    # Write VCF header if requested
-    if out_vcf:
-        out_vcf.write("##fileformat=VCFv4.2\n")
-        out_vcf.write("##source=holosimulator.workflow.mutations_streaming\n")
-        out_vcf.write("##INFO=<ID=ANI,Number=1,Type=Float,Description=\"Target ANI used for mutation\">\n")
-        out_vcf.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
+    try:
+        out_fa = _open_maybe_gzip(fasta_out, "wt")
+        out_vcf = _open_maybe_gzip(vcf_out, "wt") if vcf_out else None
+        if out_vcf:
+            out_vcf.write("##fileformat=VCFv4.2\n")
+            out_vcf.write("##source=holosimulator.workflow.mutations_streaming\n")
+            out_vcf.write("##INFO=<ID=ANI,Number=1,Type=Float,Description=\"Target ANI used for mutation\">\n")
+            out_vcf.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
 
-    total_mutable = 0
-    total_snps = 0
+        total_mutable = 0
+        total_snps = 0
 
-    with _open_maybe_gzip(fasta_in, "rt") as fh:
-        header = None
-        seq_chunks = []  # we keep only the current contig in chunks for pass1 counting
-        for line in fh:
-            if line.startswith(">"):
-                # flush previous contig if present
-                if header is not None:
-                    # PASS 1: count mutable
-                    seq_str = "".join(seq_chunks)
-                    N = sum(1 for ch in seq_str if _is_mutable(ch))
-                    k = int(round(divergence * N))
+        with _open_maybe_gzip(in_path, "rt") as fh:
+            header = None
+            seq_chunks = []
+            for line in fh:
+                if line.startswith(">"):
+                    if header is not None:
+                        seq_str = "".join(seq_chunks)
+                        N = sum(1 for ch in seq_str if _is_mutable(ch))
+                        k = int(round(divergence * N))
+                        _stream_mutate_and_write(header, seq_str, N, k, titv, rng, out_fa, out_vcf, ani, wrap)
+                        total_mutable += N
+                        total_snps += k
+                    header = line[1:].strip()
+                    seq_chunks = []
+                else:
+                    seq_chunks.append(line.strip())
 
-                    # PASS 2: stream-mutate & write
-                    _stream_mutate_and_write(
-                        header, seq_str, N, k, titv, rng, out_fa, out_vcf, ani, wrap
-                    )
+            if header is not None:
+                seq_str = "".join(seq_chunks)
+                N = sum(1 for ch in seq_str if _is_mutable(ch))
+                k = int(round(divergence * N))
+                _stream_mutate_and_write(header, seq_str, N, k, titv, rng, out_fa, out_vcf, ani, wrap)
+                total_mutable += N
+                total_snps += k
 
-                    total_mutable += N
-                    total_snps += k
+        out_fa.close()
+        if out_vcf:
+            out_vcf.close()
 
-                # start new contig
-                header = line[1:].strip()
-                seq_chunks = []
-            else:
-                seq_chunks.append(line.strip())
-
-        # flush last contig
-        if header is not None:
-            seq_str = "".join(seq_chunks)
-            N = sum(1 for ch in seq_str if _is_mutable(ch))
-            k = int(round(divergence * N))
-            _stream_mutate_and_write(
-                header, seq_str, N, k, titv, rng, out_fa, out_vcf, ani, wrap
-            )
-            total_mutable += N
-            total_snps += k
-
-    out_fa.close()
-    if out_vcf:
-        out_vcf.close()
-
-    achieved_ani = 1.0 - (total_snps / total_mutable if total_mutable else 0.0)
-    return {
-        "total_mutable": total_mutable,
-        "snp_count": total_snps,
-        "achieved_ani": achieved_ani,
-        "target_ani": ani,
-    }
+        achieved_ani = 1.0 - (total_snps / total_mutable if total_mutable else 0.0)
+        return {
+            "total_mutable": total_mutable,
+            "snp_count": total_snps,
+            "achieved_ani": achieved_ani,
+            "target_ani": ani,
+        }
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
 
 def _stream_mutate_and_write(
     header: str,

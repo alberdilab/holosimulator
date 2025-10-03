@@ -673,3 +673,43 @@ def check_genomics_paths(in_json: str | Path, timeout: int = 10) -> Dict[str, bo
         else:
             results[p] = os.path.exists(p)
     return results
+
+# ------------------------------------------------------------
+# Mutations utils
+# ------------------------------------------------------------
+
+# utils.py
+from __future__ import annotations
+import os, tempfile
+from urllib.parse import urlparse
+import requests
+
+def is_url(s: str) -> bool:
+    try:
+        u = urlparse(s)
+        return u.scheme in ("http", "https")
+    except Exception:
+        return False
+
+def download_to_temp(url: str, *, suffix: str | None = None, chunk_bytes: int = 1 << 20, timeout: int = 60) -> str:
+    """
+    Stream a remote file to a local temporary file and return its path.
+    Suffix helps keep .gz extension so gzip-aware openers behave.
+    """
+    if suffix is None:
+        # try to inherit suffix from URL path (.fna.gz, .fa.gz, etc)
+        suffix = os.path.splitext(urlparse(url).path)[1]  # ".gz"
+        # if .gz, try to keep the pre-suffix too
+        if suffix == ".gz":
+            base = os.path.basename(urlparse(url).path)  # genome.fna.gz
+            if base.count(".") >= 2:
+                suffix = "." + ".".join(base.split(".")[-2:])  # ".fna.gz"
+
+    with requests.get(url, stream=True, timeout=timeout) as r:
+        r.raise_for_status()
+        fd, tmp = tempfile.mkstemp(prefix="holosim_dl_", suffix=suffix or "")
+        with os.fdopen(fd, "wb") as f:
+            for chunk in r.iter_content(chunk_size=chunk_bytes):
+                if chunk:
+                    f.write(chunk)
+    return tmp
