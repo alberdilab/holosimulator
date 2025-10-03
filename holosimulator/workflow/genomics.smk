@@ -62,7 +62,7 @@ rule simulate:
                 --mode wgs \
                 --lc pe \
                 --i-file {input} \
-                --o-fastq {output}
+                --o-fastq {output} \
                 --i-batch_size {params.nreads} \
                 --parallel {threads} \
                 --builtin_qual_file HiSeq2500_150bp \
