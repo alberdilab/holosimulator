@@ -57,6 +57,7 @@ rule simulate:
 
         else
 
+            # Calculate fold coverage
             GENOME="{input}"
             GENOME_SIZE=$($CAT "$GENOME" | awk 'BEGIN{{s=0}} /^>/{{next}} {{s+=length($0)}} END{{printf "%.0f\n", s}}')
             TOTAL_BASES=$(( {params.nreads} * 2 * 150 ))
