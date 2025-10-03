@@ -59,13 +59,14 @@ rule simulate:
 
             # Calculate fold coverage
             GENOME="{input}"
-            GENOME_SIZE=$($CAT "$GENOME" | awk 'BEGIN{{s=0}} /^>/{{next}} {{s+=length($0)}} END{{printf "%.0f\n", s}}')
-            TOTAL_BASES=$(( {params.nreads} * 2 * 150 ))
+            GENOME_SIZE=$(CAT "$GENOME" | awk 'BEGIN{{s=0}} /^>/{{next}} {{s+=length($0)}} END{{printf "%.0f\n", s}}')
+            READ_LEN=150
+            TOTAL_BASES=$(( {params.nreads} * 2 * READ_LEN ))
             FCOV=$(python - <<'PY' "$GENOME_SIZE" "$TOTAL_BASES"
                 import sys
                 g = float(sys.argv[1]) or 1.0
                 b = float(sys.argv[2])
-                print(f"{b/g:.6f}")
+                print("%.6f" % (b/g))
                 PY
                 )
 
