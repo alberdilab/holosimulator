@@ -128,19 +128,42 @@ def mutate_fasta_by_ani(
 
 def write_outputs(
     result: MutationResult,
+    *,
+    fasta_in: str,
     fasta_out: str,
     vcf_out: str | None,
-    target_ani: float | str
+    target_ani: float | str,
 ) -> None:
+    """Write the mutated FASTA and (optionally) a VCF by re-diffing input vs mutated."""
+    # Write FASTA
     _write_fasta(result.mutated_records, fasta_out)
-    if vcf_out:
-        with open(vcf_out, "w") as vcf:
-            vcf.write("##fileformat=VCFv4.2\n")
-            vcf.write("##source=holosimulator.mutations\n")
-            vcf.write("##INFO=<ID=ANI,Number=1,Type=Float,Description=\"Target ANI used for mutation\">\n")
-            vcf.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
-            # regenerate REF/ALT by re-diffing (fast enough) to avoid storing big arrays
-            # (optional: you could store them instead if you prefer)
-            # For simplicity, recompute diffs here:
-        # Re-diff:
-        pass  # see CLI where we do a single-pass and write VCF; or keep a variant list if you prefer.
+
+    if not vcf_out:
+        return
+
+    # Load originals to recover REF (we only stored the mutated sequences in result)
+    originals = {h: s for h, s in _parse_fasta(fasta_in)}
+
+    # Normalize ANI string → float for INFO field
+    ani = _parse_ani(target_ani)
+
+    with open(vcf_out, "w") as v:
+        v.write("##fileformat=VCFv4.2\n")
+        v.write("##source=holosimulator.workflow.mutations\n")
+        v.write("##INFO=<ID=ANI,Number=1,Type=Float,Description=\"Target ANI used for mutation\">\n")
+        v.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
+
+        for h_mut, s_mut in result.mutated_records:
+            # Strip our annotation suffix so we can look up the original header key
+            h_key = h_mut.split("|", 1)[0].strip()
+            if h_key not in originals:
+                # Header mismatch; skip safely
+                continue
+            s_ref = originals[h_key].upper()
+            s_alt = s_mut.upper()
+
+            # SNP-only; lengths should match. If not, diff over the shared span.
+            L = min(len(s_ref), len(s_alt))
+            for pos1, (r, a) in enumerate(zip(s_ref[:L], s_alt[:L]), start=1):
+                if r in "ACGT" and a in "ACGT" and r != a:
+                    v.write(f"{h_key}\t{pos1}\t.\t{r}\t{a}\t.\tPASS\tANI={ani:.6f}\n")

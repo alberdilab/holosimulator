@@ -14,7 +14,7 @@ from datetime import datetime
 from collections import defaultdict
 from holosimulator.utils import *
 from holosimulator.workflow.staging import staging
-from holosimulator.workflow.mutations import mutate_fasta_by_ani
+from holosimulator.workflow.mutations import mutate_fasta_by_ani, write_outputs
 
 #####
 # HoloSimulator installation path
@@ -201,26 +201,31 @@ def main():
     if args.module == "mutations":
         print(f"{HEADER1}Accumulating mutations to genome...{RESET}", flush=True)
         try:
-            result = mutate_fasta_by_ani(
+            res = mutate_fasta_by_ani(
                 fasta_in=args.input,
-                fasta_out=args.output,
-                target_ani=args.ani,
+                target_ani=args.ani,   # accepts 0.97, 97, or "97%"
                 titv=args.titv,
                 seed=args.seed,
-                vcf_out=args.vcf,
             )
+            # Write FASTA (+ optional VCF) via helper
+            write_outputs(
+                result=res,
+                fasta_in=args.input,
+                fasta_out=args.output,
+                vcf_out=args.vcf,
+                target_ani=args.ani,
+            )
+
             if not args.quiet:
-                print(f"[{ts()}] {INFO}Mutable positions: {result['total_mutable']}{RESET}", flush=True)
-                print(f"[{ts()}] {INFO}Applied SNPs: {result['snp_count']}{RESET}", flush=True)
-                print(f"[{ts()}] {INFO}Achieved ANI ≈ {result['achieved_ani']:.6f}{RESET}", flush=True)
+                print(f"[{ts()}] {INFO}Mutable positions: {res.total_mutable}{RESET}", flush=True)
+                print(f"[{ts()}] {INFO}Applied SNPs: {res.snp_count}{RESET}", flush=True)
+                print(f"[{ts()}] {INFO}Achieved ANI ≈ {res.achieved_ani:.6f}{RESET}", flush=True)
                 print(f"[{ts()}] {HEADER1}Mutated FASTA → {args.output}{RESET}", flush=True)
                 if args.vcf:
                     print(f"[{ts()}] {HEADER1}VCF → {args.vcf}{RESET}", flush=True)
         except Exception as e:
             print(f"{ERROR}[Mutations] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
             sys.exit(1)
-        # Exit after completing mutations (don’t fall through to read simulation)
-        return
 
     ###
     # Run read simulation
