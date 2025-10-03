@@ -33,8 +33,8 @@ ALL_GENOME_FILES = [GENOME_OUT.format(gid=gid) for gid in IDS]
 rule all:
     input:
         INPUT_JSON,
-        [os.path.join(OUTDIR, f"{s}_1.fq.gz") for s in SAMPLES],
-        [os.path.join(OUTDIR, f"{s}_2.fq.gz") for s in SAMPLES]
+        [os.path.join(OUTDIR, "reads", f"{s}_1.fq.gz") for s in SAMPLES],
+        [os.path.join(OUTDIR, "reads", f"{s}_2.fq.gz") for s in SAMPLES]
 
 rule simulate:
     input:
