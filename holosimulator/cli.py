@@ -14,7 +14,7 @@ from datetime import datetime
 from collections import defaultdict
 from holosimulator.utils import *
 from holosimulator.workflow.staging import staging
-from holosimulator.workflow.mutations import mutate_fasta_by_ani_streaming, write_outputs
+from holosimulator.workflow.mutations import mutate_fasta_by_ani_streaming
 
 #####
 # HoloSimulator installation path
@@ -199,27 +199,20 @@ def main():
     ###
 
     if args.module == "mutations":
-        print(f"{HEADER1}Introducing mutations into genome...{RESET}", flush=True)
+        print(f"{HEADER1}Simulating genomic divergence (target ANI={args.ani})...{RESET}", flush=True)
         try:
             res = mutate_fasta_by_ani_streaming(
-                fasta_in=args.input,
-                target_ani=args.ani,   # accepts 0.97, 97, or "97%"
-                titv=args.titv,
-                seed=args.seed,
-            )
-            # Write FASTA (+ optional VCF) via helper
-            write_outputs(
-                result=res,
                 fasta_in=args.input,
                 fasta_out=args.output,
                 vcf_out=args.vcf,
                 target_ani=args.ani,
+                titv=args.titv,
+                seed=args.seed,
             )
-
             if not args.quiet:
-                print(f"[{ts()}] {INFO}Mutable positions: {res.total_mutable}{RESET}", flush=True)
-                print(f"[{ts()}] {INFO}Applied SNPs: {res.snp_count}{RESET}", flush=True)
-                print(f"[{ts()}] {INFO}Achieved ANI ≈ {res.achieved_ani:.6f}{RESET}", flush=True)
+                print(f"[{ts()}] {INFO}Mutable positions: {res['total_mutable']}{RESET}", flush=True)
+                print(f"[{ts()}] {INFO}Applied SNPs: {res['snp_count']}{RESET}", flush=True)
+                print(f"[{ts()}] {INFO}Achieved ANI ≈ {res['achieved_ani']:.6f}{RESET}", flush=True)
                 print(f"[{ts()}] {HEADER1}Mutated FASTA → {args.output}{RESET}", flush=True)
                 if args.vcf:
                     print(f"[{ts()}] {HEADER1}VCF → {args.vcf}{RESET}", flush=True)
