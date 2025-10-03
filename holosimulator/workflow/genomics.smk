@@ -54,10 +54,10 @@ rule simulate:
         mkdir -p "$(dirname {output})"
         echo "[`date '+%Y-%m-%d %H:%M:%S'`] [Simulate reads] Simulating reads from genome {wildcards.gid} for sample {wildcards.sample}"
 
-        if [ "{params.nreads}" -eq 0 ]; then
+        if [ {params.nreads} -eq 0 ]; then
             : > {output}
 
-        else
+        else:
             art_modern \
                 --mode wgs \
                 --lc pe \
@@ -124,7 +124,7 @@ rule compress:
         r"""
         set -euo pipefail
 
-        if [ "{params.nreads}" -eq 0 ]; then
+        if [ {params.nreads} -eq 0 ]; then
             : > {output.r1}
             : > {output.r2}
 
