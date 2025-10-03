@@ -200,7 +200,7 @@ def main():
     ###
 
     if args.module == "mutations":
-        print(f"[{ts()}] {HEADER1}Simulating genomic divergence of ANI={args.ani})...{RESET}", flush=True)
+        print(f"[{ts()}] {HEADER1}Simulating genomic divergence of ANI={args.ani}...{RESET}", flush=True)
         try:
             res = mutate_fasta_by_ani_streaming(
                 fasta_in=args.input,

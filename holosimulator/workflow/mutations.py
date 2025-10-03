@@ -2,7 +2,7 @@
 from __future__ import annotations
 import os, time, random, gzip
 from typing import IO, Optional
-from holosimulator.utils import is_url, download_to_temp
+from holosimulator.utils import is_url, download_to_temp, ts
 
 def _open_maybe_gzip(path: str, mode: str) -> IO:
     return gzip.open(path, mode) if str(path).endswith((".gz", ".bgz", ".bgzip")) else open(path, mode)
@@ -89,6 +89,7 @@ def mutate_fasta_by_ani_streaming(
     divergence = 1.0 - ani
 
     # Resolve URL → temp file if needed
+    print(f"[{ts()}] Retrieving genomes", flush=True)
     tmp_path = None
     in_path = fasta_in
     if is_url(fasta_in):
@@ -97,7 +98,9 @@ def mutate_fasta_by_ani_streaming(
 
     try:
         # PRE-PASS for progress: count total mutable positions
+        print(f"[{ts()}] Calculating mutable positions in genome", flush=True)
         total_mutable_all = _count_mutable_total(in_path) if progress else 0
+        print(f"[{ts()}] Adding SNP variants to genome ", flush=True)
         prog = _Progress(total_mutable_all, enabled=progress, desc=f"Mutating (ANI={ani:.4f})")
 
         out_fa = _open_maybe_gzip(fasta_out, "wt")
