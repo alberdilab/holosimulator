@@ -1,6 +1,6 @@
 # holosimulator/workflow/mutations_streaming.py
 from __future__ import annotations
-import random, gzip
+import random, gzip, os
 from typing import Tuple, IO, Iterable, Optional
 from holosimulator.utils import is_url, download_to_temp
 
