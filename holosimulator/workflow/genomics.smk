@@ -59,7 +59,7 @@ rule simulate:
 
             GENOME="{input}"
             GENOME_SIZE=$($CAT "$GENOME" | awk 'BEGIN{{s=0}} /^>/{{next}} {{s+=length($0)}} END{{printf "%.0f\n", s}}')
-            TOTAL_BASES=$(( {params.reads} * 2 * 150 ))
+            TOTAL_BASES=$(( {params.nreads} * 2 * 150 ))
             FCOV=$(python - <<'PY' "$GENOME_SIZE" "$TOTAL_BASES"
                 import sys
                 g = float(sys.argv[1]) or 1.0
