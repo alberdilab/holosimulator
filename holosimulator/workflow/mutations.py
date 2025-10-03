@@ -89,7 +89,7 @@ def mutate_fasta_by_ani_streaming(
     divergence = 1.0 - ani
 
     # Resolve URL → temp file if needed
-    print(f"[{ts()}] Retrieving genomes", flush=True)
+    print(f"[{ts()}] Retrieving genome", flush=True)
     tmp_path = None
     in_path = fasta_in
     if is_url(fasta_in):
@@ -101,7 +101,7 @@ def mutate_fasta_by_ani_streaming(
         print(f"[{ts()}] Calculating mutable positions in genome", flush=True)
         total_mutable_all = _count_mutable_total(in_path) if progress else 0
         print(f"[{ts()}] Adding SNP variants to genome ", flush=True)
-        prog = _Progress(total_mutable_all, enabled=progress, desc=f"Mutating (ANI={ani:.4f})")
+        prog = _Progress(total_mutable_all, enabled=progress, desc=f"   Mutating (ANI={ani:.4f})")
 
         out_fa = _open_maybe_gzip(fasta_out, "wt")
         out_vcf = _open_maybe_gzip(vcf_out, "wt") if vcf_out else None
