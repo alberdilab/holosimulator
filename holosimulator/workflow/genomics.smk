@@ -42,8 +42,11 @@ rule simulate:
         os.path.join(OUTDIR, "genomes", "{gid}.fa")
     output:
         temp(os.path.join(OUTDIR, "simulation/{sample}/{gid}.fastq"))
+    log:
+        os.path.join(OUTDIR, "log", "art", "{sample}", "{gid}.log")
     params:
-        nreads   = lambda w: int(ABUND[ID_TO_ORG[w.gid]][w.sample])
+        nreads   = lambda w: int(ABUND[ID_TO_ORG[w.gid]][w.sample]),
+        art_logdir = lambda w: os.path.join(OUTDIR, "log", "art", w.sample, w.gid)
     threads: 1
     shell:
         r"""
@@ -64,6 +67,7 @@ rule simulate:
             TOTAL_BASES=$(( {params.nreads} * 2 * READ_LEN ))
             FCOV=$(awk -v b="$TOTAL_BASES" -v g="$GENOME_SIZE" 'BEGIN{{ if (g <= 0) {{ printf "0.00000000"; exit }} printf "%.8f", b/g }}')
 
+            export ART_LOG_DIR="{params.art_logdir}"
             art_modern \
                 --mode wgs \
                 --lc pe \
