@@ -62,7 +62,7 @@ rule simulate:
             GENOME_SIZE=$(cat "$GENOME" | awk 'BEGIN{{s=0}} /^>/{{next}} {{s+=length($0)}} END{{printf "%.0f\n", s}}')
             READ_LEN=150
             TOTAL_BASES=$(( {params.nreads} * 2 * READ_LEN ))
-            FCOV=$(awk -v b="$TOTAL_BASES" -v g="$GENOME_SIZE" 'BEGIN{{ if (g <= 0) {{ printf "0.000000"; exit }} printf "%.6f", b/g }}')
+            FCOV=$(awk -v b="$TOTAL_BASES" -v g="$GENOME_SIZE" 'BEGIN{{ if (g <= 0) {{ printf "0.00000000"; exit }} printf "%.8f", b/g }}')
 
             art_modern \
                 --mode wgs \
@@ -78,43 +78,6 @@ rule simulate:
 
         fi
         """
-
-# Old simulate with iss
-        # rule simulate:
-        #     input:
-        #         os.path.join(OUTDIR, "genomes", "{gid}.fa")
-        #     output:
-        #         r1 = temp(os.path.join(OUTDIR, "iss/{sample}/{gid}/reads_R1.fastq")),
-        #         r2 = temp(os.path.join(OUTDIR, "iss/{sample}/{gid}/reads_R2.fastq"))
-        #     params:
-        #         model    = SEQUENCING_MODEL,
-        #         seed     = SEED,
-        #         organism = lambda w: ID_TO_ORG[w.gid],
-        #         # reads = 2 × pairs from JSON
-        #         nreads   = lambda w: 2 * int(ABUND[ID_TO_ORG[w.gid]][w.sample])
-        #     threads: 1
-        #     shell:
-        #         r"""
-        #         set -euo pipefail
-        #         mkdir -p "$(dirname {output.r1})"
-        #         echo "[`date '+%Y-%m-%d %H:%M:%S'`] [Simulate reads] Simulating reads from genome {wildcards.gid} for sample {wildcards.sample}"
-        #
-        #         if [ "{params.nreads}" -eq 0 ]; then
-        #             : > {output.r1}
-        #             : > {output.r2}
-        #         else
-        #             iss generate \
-        #                 --genomes {input} \
-        #                 --n_reads {params.nreads} \
-        #                 --model {params.model} \
-        #                 --cpus {threads} \
-        #                 --seed {params.seed} \
-        #                 --output iss/{wildcards.sample}/{wildcards.gid}/reads
-        #
-        #             rm -f iss/{wildcards.sample}/{wildcards.gid}/reads_abundance.txt
-        #             rm -f iss/{wildcards.sample}/{wildcards.gid}/reads.iss*.vcf
-        #         fi
-        #         """
 
 rule compress:
     input:
@@ -136,30 +99,33 @@ rule compress:
         else:
 
             zcat -f {input} | \
-            awk -v R1="{output.r1}" -v R2="{output.r2}" '
-                BEGIN{
-                    cmd1 = "gzip -c -p {threads} > " R1;
-                    cmd2 = "gzip -c -p {threads} > " R2;
-                }
-                {
+            awk -v R1="{output.r1}" -v R2="{output.r2}" -v T={threads} '
+                BEGIN{{ 
+                    if (T > 1) {{
+                        cmd1 = "pigz -c -p " T " > " R1;
+                        cmd2 = "pigz -c -p " T " > " R2;
+                    }} else {{
+                        cmd1 = "gzip -c > " R1;
+                        cmd2 = "gzip -c > " R2;
+                    }}
+                }}
+                {{
                     # read one FASTQ record (4 lines)
                     h=$0; getline s; getline p; getline q;
 
                     # decide mate by header suffix /1 or /2 (before end or whitespace)
-                    mate = 0
+                    mate = 0;
                     if (h ~ /\/1(\s*$)/)      mate = 1;
                     else if (h ~ /\/2(\s*$)/) mate = 2;
 
-                    if (mate==1) {
+                    if (mate==1) {{
                         printf "%s\n%s\n%s\n%s\n", h,s,p,q | cmd1;
-                    } else if (mate==2) {
+                    }} else if (mate==2) {{
                         printf "%s\n%s\n%s\n%s\n", h,s,p,q | cmd2;
-                    }
-                    # else: silently drop non-/1,/2 headers; or add a third output if desired
-                }
-                END{
-                    close(cmd1); close(cmd2);
-                }'
+                    }}
+                    # else: drop non-/1,/2 headers (or add a 3rd output)
+                }}
+                END{{ close(cmd1); close(cmd2); }}'
 
         fi
         """
