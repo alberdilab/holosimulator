@@ -43,7 +43,7 @@ rule simulate:
     output:
         temp(os.path.join(OUTDIR, "simulation/{sample}/{gid}.fastq"))
     params:
-        nreads   = lambda w: 2 * int(ABUND[ID_TO_ORG[w.gid]][w.sample])
+        nreads   = lambda w: int(ABUND[ID_TO_ORG[w.gid]][w.sample])
     threads: 1
     shell:
         r"""
