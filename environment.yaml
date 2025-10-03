@@ -2,6 +2,7 @@ name: holosimulator
 channels:
     - conda-forge
     - bioconda
+    - defaults
 
 dependencies:
   - python
