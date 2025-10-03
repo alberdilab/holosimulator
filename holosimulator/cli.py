@@ -68,7 +68,7 @@ def run_genomics(module, output_dir, threads, input, sequencing_model, seed):
         f"-s {PACKAGE_DIR / 'workflow' / 'genomics.smk'} "
         f"--directory {output_dir} "
         f"--cores {threads} "
-        f"--quiet 2>/dev/null "
+#        f"--quiet 2>/dev/null "
         f"--configfile {CONFIG_PATH} "
         f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
     ]

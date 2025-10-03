@@ -43,9 +43,6 @@ rule simulate:
     output:
         temp(os.path.join(OUTDIR, "simulation/{sample}/{gid}.fastq"))
     params:
-        seed     = SEED,
-        organism = lambda w: ID_TO_ORG[w.gid],
-        # reads = 2 × pairs from JSON
         nreads   = lambda w: 2 * int(ABUND[ID_TO_ORG[w.gid]][w.sample])
     threads: 1
     shell:
