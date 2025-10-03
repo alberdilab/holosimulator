@@ -11,9 +11,9 @@ dependencies:
   - argparse
   - PyYAML
   - requests
-  - snakemake==9.11.6
-  - snakemake-executor-plugin-slurm==1.8.0
-  - neat==4.3.0
+  - snakemake
+  - snakemake-executor-plugin-slurm
+  - neat
   - pip
   - pip:
       - git+https://github.com/alberdilab/holosimulator.git
