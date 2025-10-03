@@ -150,8 +150,8 @@ rule compress:
 
 rule merge_sample:
     input:
-        r1 = lambda w: [os.path.join(OUTDIR, "simulation", w.sample, "{gid}_1.fq.gz") for gid in IDS],
-        r2 = lambda w: [os.path.join(OUTDIR, "simulation", w.sample, "{gid}_2.fq.gz") for gid in IDS]
+        r1 = lambda w: expand(os.path.join(OUTDIR, "simulation", w.sample, "{gid}_1.fq.gz"), gid=IDS),
+        r2 = lambda w: expand(os.path.join(OUTDIR, "simulation", w.sample, "{gid}_2.fq.gz"), gid=IDS)
     output:
         r1 = os.path.join(OUTDIR, "reads", "{sample}_1.fq.gz"),
         r2 = os.path.join(OUTDIR, "reads", "{sample}_2.fq.gz")
