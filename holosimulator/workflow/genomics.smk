@@ -51,6 +51,7 @@ rule simulate:
     shell:
         r"""
         set -euo pipefail
+        mkdir -p "simulation"
         mkdir -p "$(dirname {output})"
         echo "[`date '+%Y-%m-%d %H:%M:%S'`] [Simulate reads] Simulating reads from genome {wildcards.gid} for sample {wildcards.sample}"
 
