@@ -51,6 +51,29 @@ holosimulator mutations -i host6.fna -o host9.fna -a 0.999
 holosimulator mutations -i host6.fna -o host10.fna -a 0.999
 ```
 
+Bacterial taxa
+
+Fusobacterium_A ulcerans_A	
+Buttiauxella ferragutiae	
+Hafnia alvei
+Bacteroides thetaiotaomicron		
+Bacteroides fragilis	
+Bacteroides sp902362375	
+Spiroplasma phoeniceum	
+Stenotrophomonas maltophilia_AA	
+Clostridioides sp020641055	
+Parabacteroides sp900540715	
+Wolbachia sp001439985	
+Buttiauxella davisae_A	
+Morganella morganii_A	
+Escherichia marmotae	
+Robinsoniella peoriensis	
+Lactococcus lactis	
+Rahnella variigena	
+Klebsiella variicola	
+Phascolarctobacterium faecium	
+UMGS946 sp900544965	
+
 #### Validate genomic divergence
 
 Using 'fastANI', confirm the simulated genomes exhibit the expected level of dissimilarity.
