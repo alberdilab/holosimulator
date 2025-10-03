@@ -1,6 +1,9 @@
 # holosimulator
 Code repository of the HoloSimulator software
 
+```sh
+conda env create -f https://raw.githubusercontent.com/alberdilab/holosimulator/refs/heads/main/environment.yaml
+```
 
 ## Examples
 
