@@ -100,6 +100,13 @@ def mutate_fasta_by_ani_streaming(
         # PRE-PASS for progress: count total mutable positions
         print(f"[{ts()}] Calculating mutable positions in genome", flush=True)
         total_mutable_all = _count_mutable_total(in_path) if progress else 0
+
+        if total_mutable_all > 0:
+            divergence = 1.0 - ani
+            expected_snps = int(round(divergence * total_mutable_all))
+            print(f"    {INFO}Mutable positions: {total_mutable_all:,}{RESET}", flush=True)
+            print(f"    {INFO}Expected SNPs (target ANI={ani:.4f}): {expected_snps:,}{RESET}", flush=True)
+
         print(f"[{ts()}] Adding SNP variants to genome ", flush=True)
         prog = _Progress(total_mutable_all, enabled=progress, desc=f"   Mutating (ANI={ani:.4f})")
 
