@@ -15,8 +15,7 @@ setup(
         "PyYAML",
         "requests",
         "snakemake==9.11.6",
-        "snakemake-executor-plugin-slurm==1.8.0",
-        "InSilicoSeq==2.0.1"
+        "snakemake-executor-plugin-slurm==1.8.0"
     ],
     entry_points={
         "console_scripts": [

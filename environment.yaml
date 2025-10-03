@@ -1,0 +1,16 @@
+name: holosimulator
+channels:
+    - conda-forge
+    - bioconda
+
+dependencies:
+  - python
+  - biopython
+  - numpy
+  - pandas
+  - argparse
+  - PyYAML
+  - requests
+  - snakemake==9.11.6
+  - snakemake-executor-plugin-slurm==1.8.0
+  - neat==4.3.0
