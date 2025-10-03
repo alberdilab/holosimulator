@@ -48,8 +48,8 @@ def _parse_ani(val: str | float) -> float:
 
 class _Progress:
     def __init__(self, total: int, enabled: bool, desc: str = "Mutating"):
-        self.total = max(1, total)
-        self.enabled = enabled
+        self.total = max(1, int(total))
+        self.enabled = bool(enabled)
         self.desc = desc
         self.done = 0
         self._last_print_t = 0.0
@@ -79,28 +79,29 @@ def _count_mutable_total(in_path: str) -> int:
     total = 0
     with _open_maybe_gzip(in_path, "rt") as fh:
         for line in fh:
-            if not line or line[0] == ">":  # header
+            if not line or line[0] == ">":
                 continue
             s = line.strip()
             for ch in s:
-                total += 1 if _is_mutable(ch) else 0
+                if _is_mutable(ch):
+                    total += 1
     return total
 
 # ---------- hypergeometric draw per chunk ----------
 
 def _draw_k_in_block(R: int, K: int, m: int, np_rng, py_rng: random.Random) -> int:
-    # --- NEW: sanitize ---
+    # sanitize
     R = int(max(0, R)); K = int(max(0, K)); m = int(max(0, m))
-    if K > R:  # keep invariant
+    if K > R:  # invariant
         K = R
     if m == 0 or R == 0 or K == 0:
         return 0
 
     if np_rng is not None:
         X = int(np_rng.hypergeometric(ngood=K, nbad=R - K, nsample=m))
-        return min(X, K)  # extra safety
+        return min(X, K)
 
-    # Fallback (binomial-ish) ...
+    # Fallback (binomial-ish)
     p = K / R
     if p < 1e-6 and m >= 1024 and py_rng.random() > (p * m):
         return 0
@@ -122,7 +123,7 @@ def mutate_fasta_by_ani_streaming(
     seed: Optional[int] = None,
     wrap: int = 80,
     progress: bool = True,
-    chunk_size: int = 65536,        # NEW: process per-chunk (fast when X==0)
+    chunk_size: int = 65536,        # process per chunk (fast when X==0)
 ) -> dict:
     rng = random.Random(seed)
     np_rng = _np.random.default_rng(seed) if _HAVE_NUMPY else None
@@ -179,7 +180,7 @@ def mutate_fasta_by_ani_streaming(
         total_mutable = 0
         total_snps = 0
 
-        # --- Stream input, split into per-contig temp files (no RAM blow-up) ---
+        # --- Stream input, split into per-contig temp files ---
         print(f"[{ts()}] Parsing contigs", flush=True)
         with _open_maybe_gzip(in_path, "rt") as fh:
             header = None
@@ -190,13 +191,16 @@ def mutate_fasta_by_ani_streaming(
 
             def _finalize_contig():
                 nonlocal header, tmpf, tmp_contig_path, contig_mutable, contig_len
+                nonlocal total_mutable, total_snps, fa_col  # include fa_col to avoid UnboundLocalError
                 if header is None or tmpf is None:
                     return
                 tmpf.close()
-                # per-contig K
+                # per-contig target K
                 K_target = int(round(divergence * contig_mutable))
-                # write FASTA header
+                # write FASTA header and reset wrapping for sequence lines
                 out_fa.write(f">{header} | mutated_snp={K_target};target_ani={ani:.6f}\n")
+                fa_col = 0
+
                 # mutate from temp file in chunks
                 _mutate_contig_from_tmp(
                     header=header,
@@ -213,12 +217,12 @@ def mutate_fasta_by_ani_streaming(
                     prog=prog,
                     chunk_size=chunk_size
                 )
+
                 # finalize line break if needed
                 if wrap > 0 and fa_col != 0:
                     out_fa.write("\n")
                     fa_col = 0
                 # update totals
-                nonlocal total_mutable, total_snps
                 total_mutable += contig_mutable
                 total_snps += K_target
                 # cleanup
@@ -266,12 +270,29 @@ def mutate_fasta_by_ani_streaming(
             except OSError: pass
 
 def _mutate_contig_from_tmp(
-    *, header, tmp_path, N_mutable, K_target, titv, rng, np_rng,
-    out_fa_write, out_vcf, ani, wrap, prog, chunk_size
+    *,
+    header: str,
+    tmp_path: str,
+    N_mutable: int,
+    K_target: int,
+    titv: float,
+    rng: random.Random,
+    np_rng,
+    out_fa_write,
+    out_vcf: Optional[IO],
+    ani: float,
+    wrap: int,
+    prog: Optional[_Progress],
+    chunk_size: int,
 ) -> None:
+    """
+    Read the contig sequence from a temp file in fixed-size chunks,
+    allocate SNPs per chunk via Hypergeometric (NumPy exact; otherwise binomial approx),
+    mutate only those positions, and stream out FASTA/VCF.
+    """
     k_remaining = int(K_target)
     R_remaining = int(N_mutable)
-    pos1 = 0  # 1-based across contig
+    pos1 = 0  # 1-based within contig (over all bases)
 
     with open(tmp_path, "rt") as cf:
         while True:
@@ -279,7 +300,7 @@ def _mutate_contig_from_tmp(
             if not block:
                 break
 
-            # Mutable indices in this block
+            # indices of mutable bases within this block
             m_idx = [i for i, ch in enumerate(block) if _is_mutable(ch)]
             m = len(m_idx)
 
@@ -288,14 +309,11 @@ def _mutate_contig_from_tmp(
                 pos1 += len(block)
                 continue
 
-            # Effective mutable we can still consume (paranoia guard)
-            m_eff = m if R_remaining >= m else R_remaining
-
-            # If this is the last mutable chunk, force exact remainder
-            if R_remaining == m_eff:
-                X = min(k_remaining, m_eff)
+            # If this is the final mutable chunk, force exact remainder
+            if R_remaining == m:
+                X = min(k_remaining, m)
             else:
-                X = _draw_k_in_block(R_remaining, k_remaining, m_eff, np_rng, rng)
+                X = _draw_k_in_block(R_remaining, k_remaining, m, np_rng, rng)
 
             # Safety clamp
             if X > k_remaining:
@@ -303,26 +321,22 @@ def _mutate_contig_from_tmp(
 
             if X == 0:
                 out_fa_write(block)
-                if prog: prog.update(m_eff)
+                if prog: prog.update(m)
             else:
                 out_chars = list(block)
-                # Choose X positions among the first m_eff mutable indices
-                choose_from = m_idx[:m_eff] if m_eff < m else m_idx
-                for j in rng.sample(choose_from, X):
+                choose = set(rng.sample(m_idx, X))
+                for j in choose:
                     ref = out_chars[j]
                     alt = _mutate_base(ref, titv, rng)
                     out_chars[j] = alt
                     if out_vcf:
-                        out_vcf.write(
-                            f"{header}\t{pos1 + j + 1}\t.\t{ref.upper()}\t{alt.upper()}\t.\tPASS\tANI={ani:.6f}\n"
-                        )
+                        out_vcf.write(f"{header}\t{pos1 + j + 1}\t.\t{ref.upper()}\t{alt.upper()}\t.\tPASS\tANI={ani:.6f}\n")
                 out_fa_write("".join(out_chars))
-                if prog: prog.update(m_eff)
+                if prog: prog.update(m)
 
-            # --- CRITICAL: keep invariants in sync ---
+            # keep invariants in sync
             k_remaining -= X
-            R_remaining -= m_eff
+            R_remaining -= m
+            if R_remaining < 0:
+                R_remaining = 0
             pos1 += len(block)
-
-    # Optional: sanity check (can log if not zero)
-    # if k_remaining != 0: print(f"[warn] leftover k_remaining={k_remaining}", file=sys.stderr)
