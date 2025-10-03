@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import io
 import sys
@@ -6,6 +7,7 @@ import re
 import json
 import math
 import gzip
+import tempfile
 import requests
 import numpy as np
 import pandas as pd
@@ -677,12 +679,6 @@ def check_genomics_paths(in_json: str | Path, timeout: int = 10) -> Dict[str, bo
 # ------------------------------------------------------------
 # Mutations utils
 # ------------------------------------------------------------
-
-# utils.py
-from __future__ import annotations
-import os, tempfile
-from urllib.parse import urlparse
-import requests
 
 def is_url(s: str) -> bool:
     try:
