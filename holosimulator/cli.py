@@ -245,7 +245,7 @@ def main():
                 seed=args.seed,
                 output_json=args.output / GENOMES_JSON)
         else:
-            csv_to_inputs_json(args.input,GENOMES_JSON)
+            csv_to_inputs_json(args.input, args.output / GENOMES_JSON)
 
         print(f"[{ts()}] {HEADER1}Staging reference genomes...{RESET}", flush=True)
 

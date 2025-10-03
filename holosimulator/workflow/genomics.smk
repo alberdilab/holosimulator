@@ -42,11 +42,9 @@ rule simulate:
         os.path.join(OUTDIR, "genomes", "{gid}.fa")
     output:
         temp(os.path.join(OUTDIR, "simulation/{sample}/{gid}.fastq"))
-    log:
-        os.path.join(OUTDIR, "log", "art", "{sample}", "{gid}.log")
     params:
         nreads   = lambda w: int(ABUND[ID_TO_ORG[w.gid]][w.sample]),
-        art_logdir = lambda w: os.path.join(OUTDIR, "log", "art", w.sample, w.gid)
+        art_logdir = lambda w: os.path.join(OUTDIR, "log", "simulate", w.sample, w.gid)
     threads: 1
     shell:
         r"""
