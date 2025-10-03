@@ -55,7 +55,19 @@ rule simulate:
         if [ {params.nreads} -eq 0 ]; then
             : > {output}
 
-        else:
+        else
+
+            GENOME="{input}"
+            GENOME_SIZE=$($CAT "$GENOME" | awk 'BEGIN{{s=0}} /^>/{{next}} {{s+=length($0)}} END{{printf "%.0f\n", s}}')
+            TOTAL_BASES=$(( {params.reads} * 2 * 150 ))
+            FCOV=$(python - <<'PY' "$GENOME_SIZE" "$TOTAL_BASES"
+                import sys
+                g = float(sys.argv[1]) or 1.0
+                b = float(sys.argv[2])
+                print(f"{b/g:.6f}")
+                PY
+                )
+
             art_modern \
                 --mode wgs \
                 --lc pe \
@@ -63,7 +75,7 @@ rule simulate:
                 --o-fastq {output} \
                 --parallel {threads} \
                 --builtin_qual_file HiSeq2500_150bp \
-		        --i-fcov {params.nreads} \
+		        --i-fcov $"FCOV" \
 		        --pe_frag_dist_mean 400 \
 		        --pe_frag_dist_std_dev 30 \
                 --read_len 150
