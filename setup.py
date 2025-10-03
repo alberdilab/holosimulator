@@ -14,12 +14,12 @@ setup(
         "argparse",
         "PyYAML",
         "requests",
-        "snakemake"
+        "snakemake>=3.7"
     ],
     entry_points={
         "console_scripts": [
             "holosimulator=holosimulator.cli:main",
         ],
     },
-    python_requires=">=3.6",
+    python_requires=">=3.11",
 )
