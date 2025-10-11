@@ -6,10 +6,8 @@ from glob import glob
 # ------------------
 # Config (from YAML)
 # ------------------
-INPUT_JSON        = config["input"]                  # augmented JSON (with contigs)
+INPUT_JSON        = config["input"]
 OUTDIR            = config["output_dir"]
-SEQUENCING_MODEL  = config["sequencing_model"]
-SEED              = int(config["seed"])
 
 # -------------------------
 # Parse transcriptomics JSON

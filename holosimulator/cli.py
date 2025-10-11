@@ -271,7 +271,7 @@ def main():
             sys.exit(1)
 
         if args.module == "genomics":            
-            print(f"[{ts()}] {HEADER1}Simulating reads...{RESET}", flush=True)
+            print(f"[{ts()}] {HEADER1}Simulating genomic reads...{RESET}", flush=True)
             run_genomics(
                 args.module, 
                 Path(args.output).resolve(), 
@@ -282,7 +282,7 @@ def main():
             print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
 
         if args.module == "transcriptomics":
-            print(f"[{ts()}] {HEADER1}Simulating reads...{RESET}", flush=True)
+            print(f"[{ts()}] {HEADER1}Simulating transcriptomic reads...{RESET}", flush=True)
             run_transcriptomics(
                 args.module, 
                 Path(args.output).resolve(), 
