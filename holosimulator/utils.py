@@ -172,6 +172,83 @@ def args_to_genomics_json(
         data = {"samples": sample_cols, "genomes": genomes}
         output_json_path.write_text(json.dumps(data, indent=2))
         return output_json_path
+
+def args_to_transcriptomics_json(
+    host, microbiome, sample_size, sequencing_depth, sequencing_depth_variance,
+    host_fraction, host_fraction_variance, microbiome_variance, seed,
+    output_json):
+
+    # ---------- small helpers (scoped here so this function is self-contained) ----------
+    def _parse_csv_list(s):
+        if not s:
+            return []
+        return [x.strip() for x in str(s).split(",") if x.strip()]
+
+    def as_fraction(x: float) -> float:
+        """Accept 0..1 or 0..100 (percent) and return fraction 0..1."""
+        x = float(x)
+        return x / 100.0 if x > 1.0 and x <= 100.0 else x
+
+    def safe_normal(mean, sd):
+        if sd <= 0:
+            return max(0.0, float(mean))
+        val = np.random.normal(loc=mean, scale=sd)
+        return max(0.0, float(val))
+
+    def dirichlet_with_variance(k: int, var_pct: float):
+        """
+        Map a user variance % into a Dirichlet concentration.
+        v=0 -> low variance (alpha~10), v=100 -> high variance (alpha~0.5).
+        """
+        var_pct = min(max(float(var_pct), 0.0), 100.0)
+        alpha_scale = 10.0 - 9.5 * (var_pct / 100.0)
+        alpha = np.full(k, alpha_scale, dtype=float)
+        return np.random.dirichlet(alpha)
+
+    def basename_no_ext(p: str) -> str:
+        name = os.path.basename(p)
+        for ext in [".fa.gz", ".fna.gz", ".fasta.gz", ".fa", ".fna", ".fasta", ".gz"]:
+            if name.endswith(ext):
+                return name[: -len(ext)]
+        return name
+
+    def _to_float_pairs(genomes, samples):
+        """Serialize abundances as floats (e.g., 20300.0) to match your example JSON."""
+        for g in genomes:
+            for s in samples:
+                g["abundances"][s] = float(g["abundances"][s])
+        return genomes
+
+    def _csv_to_inputs_json(input_csv: str, output_json_path: Path):
+        import pandas as pd  # only needed for CSV fallback
+        output_json_path.parent.mkdir(parents=True, exist_ok=True)
+        df = pd.read_csv(input_csv, sep=None, engine="python")
+        df.columns = df.columns.str.strip().str.replace(r"\ufeff", "", regex=True)
+        if not {"Organism", "Path"}.issubset(df.columns):
+            missing = {"Organism", "Path"} - set(df.columns)
+            raise ValueError(f"Input file missing required columns: {missing}")
+        df["Organism"] = df["Organism"].astype(str)
+        sample_cols = [c for c in df.columns if str(c).startswith("Sample")]
+        if not sample_cols:
+            raise ValueError("No sample columns found (expected 'Sample*' columns).")
+
+        transcriptomes = []
+        for i, r in enumerate(df.itertuples(index=False), start=1):
+            gid = f"G{i:04d}"
+            org = getattr(r, "Organism")
+            path = getattr(r, "Path")
+            cat  = getattr(r, "Category", None) if "Category" in df.columns else None
+            abund = {s: float(getattr(r, s)) for s in sample_cols}
+            transcriptomes.append({
+                "id": gid,
+                "organism": org,
+                "category": None if pd.isna(cat) else str(cat),
+                "path": str(path),
+                "abundances": abund,
+            })
+        data = {"samples": sample_cols, "transcriptomes": transcriptomes}
+        output_json_path.write_text(json.dumps(data, indent=2))
+        return output_json_path
     # ---------------------------------------------------------------------
 
     # Prepare output path

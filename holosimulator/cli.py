@@ -292,7 +292,7 @@ def main():
                     seed=args.seed,
                     output_json=args.output / TRANSCRIPTOMES_JSON)
         else:
-            csv_to_json_transcripts(args.input, args.output / TRANSCRIPTOMES_JSON)
+            csv_to_json_transcriptomes(args.input, args.output / TRANSCRIPTOMES_JSON)
 
         print(f"[{ts()}] {HEADER1}Staging reference transcriptomes...{RESET}", flush=True)
 
