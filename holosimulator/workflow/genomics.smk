@@ -7,7 +7,6 @@ from glob import glob
 # --- Config ---
 INPUT_JSON = config["input"]
 OUTDIR     = config["output_dir"]
-SEQUENCING_MODEL = config["sequencing_model"]
 SEED = config["seed"]
 
 # --- Parse JSON at parse time ---

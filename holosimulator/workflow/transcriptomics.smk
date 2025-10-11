@@ -9,6 +9,8 @@ from holosimulator.utils import *
 # ------------------
 INPUT_JSON        = config["input"]
 OUTDIR            = config["output_dir"]
+READLENGTH        = config["read_length"]
+SEED              = config["seed"]
 
 # -------------------------
 # Parse transcriptomics JSON
@@ -46,11 +48,12 @@ rule calculate_coverage:
         tsv=os.path.join(OUTDIR, "simulation", "{sample}/{gid}.tsv")
     threads: 1
     params:
-        total_reads=10_000_000,
-        read_length=150,
+        total_reads = lambda w: int(ABUND[ID_TO_ORG[w.gid]][w.sample]),
+        read_length=READLENGTH,
         lognorm_mu=-2.0,
         lognorm_sigma=1.2,
-        seed=42       
+        seed=SEED       
+        art_logdir = lambda w: os.path.join(OUTDIR, "log", "simulate", w.sample, w.gid)
     run:
         import math, numpy as np, random
         print(f"[{ts()}] [Simulate reads] Calculating gene coverages for genome {wildcards.gid} in sample {wildcards.sample}", file=sys.stderr, flush=True)

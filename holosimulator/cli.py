@@ -61,7 +61,7 @@ def run_unlock(module, output_dir):
     subprocess.run(unlock_command, shell=False, check=True)
     print(f"The output directory {output_dir} has been succesfully unlocked")
 
-def run_genomics(module, output_dir, threads, input, sequencing_model, seed):
+def run_genomics(module, output_dir, threads, input, read_length, seed):
     snakemake_command = [
         "/bin/bash", "-c",
         "snakemake "
@@ -70,11 +70,11 @@ def run_genomics(module, output_dir, threads, input, sequencing_model, seed):
         f"--cores {threads} "
         f"--quiet 2>/dev/null "
         f"--configfile {CONFIG_PATH} "
-        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
+        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} read_length={read_length} seed={seed}"
     ]
     subprocess.run(snakemake_command, shell=False, check=True)
 
-def run_transcriptomics(module, output_dir, threads, input):
+def run_transcriptomics(module, output_dir, threads, input, read_length, seed):
     snakemake_command = [
         "/bin/bash", "-c",
         "snakemake "
@@ -83,7 +83,7 @@ def run_transcriptomics(module, output_dir, threads, input):
         f"--cores {threads} "
         #f"--quiet 2>/dev/null "
         f"--configfile {CONFIG_PATH} "
-        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input}"
+        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} read_length={read_length} seed={seed}"
     ]
     subprocess.run(snakemake_command, shell=False, check=True)
 
@@ -111,7 +111,7 @@ def main():
     subparser_genomics.add_argument("-f", "--host-fraction", dest="host_fraction", default=0.2, required=False, help="Fraction of host DNA (Default: 0.2)")
     subparser_genomics.add_argument("-w", "--host-fraction-variance", dest="host_fraction_variance", default=2, required=False, help="Across-sample host-microbiome ratio variance (Default: 5)")
     subparser_genomics.add_argument("-v", "--microbiome-variance", dest="microbiome_variance", default=2, required=False, help="Across-sample microbiome variance percentage (Default: 5)")
-    subparser_genomics.add_argument("-q", "--sequencing-model", dest="sequencing_model", default="hiseq", required=False, help="Sequencing model for ISS (Default: HiSeq)")
+    subparser_genomics.add_argument("-l", "--read-length", dest="read_length", type=int, default=150, required=False, help="Length of simulated reads (Default: 150)")
     subparser_genomics.add_argument("-s", "--seed", required=False, type=int, default=random.randint(0, 9999), help="Random seed for reproducibility. If not set, results will vary across runs ")   
     subparser_genomics.add_argument("-t", "--threads", default=1, help="Number of threads to use (Default: 1)")   
     subparser_genomics.add_argument("--verbose", action="store_true", help="Print verbose output")   
@@ -129,7 +129,7 @@ def main():
     subparser_transcriptomics.add_argument("-f", "--host-fraction", dest="host_fraction", default=0.2, required=False, help="Fraction of host DNA (Default: 0.2)")
     subparser_transcriptomics.add_argument("-w", "--host-fraction-variance", dest="host_fraction_variance", default=2, required=False, help="Across-sample host-microbiome ratio variance (Default: 5)")
     subparser_transcriptomics.add_argument("-v", "--microbiome-variance", dest="microbiome_variance", required=False, default=2, help="Across-sample microbiome variance percentage (Default: 5)")
-    subparser_transcriptomics.add_argument("-q", "--sequencing-model", dest="sequencing_model", default="hiseq", required=False, help="Sequencing model for ISS (Default: HiSeq)")
+    subparser_transcriptomics.add_argument("-l", "--read-length", dest="read_length", type=int, default=150, required=False, help="Length of simulated reads (Default: 150)")
     subparser_transcriptomics.add_argument("-s", "--seed", required=False, type=int, default=random.randint(0, 9999), help="Random seed for reproducibility. If not set, results will vary across runs")   
     subparser_transcriptomics.add_argument("-t", "--threads", default=1, help="Number of threads to use (Default: 1)")   
     subparser_transcriptomics.add_argument("--verbose", action="store_true", help="Print verbose output")   
@@ -270,7 +270,7 @@ def main():
                 Path(args.output).resolve(), 
                 args.threads, 
                 GENOMES_JSON, 
-                args.sequencing_model,
+                args.read_length,
                 args.seed)
         print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
 
@@ -316,7 +316,9 @@ def main():
                 args.module, 
                 Path(args.output).resolve(), 
                 args.threads, 
-                TRANSCRIPTOMES_JSON)
+                TRANSCRIPTOMES_JSON,
+                args.read_length,
+                args.seed)
         print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
 
 if __name__ == "__main__":
