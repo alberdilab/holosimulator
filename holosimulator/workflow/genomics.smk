@@ -14,12 +14,12 @@ SEED = config["seed"]
 with open(INPUT_JSON) as fh:
     META = json.load(fh)
 
-SAMPLES = META["samples"]                            # e.g. ["Sample1", ...]
-GENOMES = META["genomes"]                            # list of dicts with id, organism, path, abundances
+SAMPLES = META["samples"]
+GENOMES = META["genomes"] 
 
 # Maps & lists
-TAXA       = [g["organism"] for g in GENOMES]        # organism names (not used in paths)
-IDS        = [g["id"] for g in GENOMES]              # genome IDs like G0001
+TAXA       = [g["organism"] for g in GENOMES]
+IDS        = [g["id"] for g in GENOMES]
 ORG_TO_ID  = {g["organism"]: g["id"] for g in GENOMES}
 ID_TO_ORG  = {g["id"]: g["organism"] for g in GENOMES}
 ID_TO_PATH = {g["id"]: g["path"] for g in GENOMES}
