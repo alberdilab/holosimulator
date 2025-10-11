@@ -141,7 +141,7 @@ rule simulate_transcriptome:
             --mode trans \
             --lc pe \
             --i-file {input.fa} \
-            --o-fastq {output}
+            --o-fastq {output} \
             --builtin_qual_file HiSeq2500_150bp \
             --i-fcov {input.cov} \
             --pe_frag_dist_mean 400 \
