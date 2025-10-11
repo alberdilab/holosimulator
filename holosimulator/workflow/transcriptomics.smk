@@ -52,7 +52,7 @@ rule calculate_coverage:
         read_length=READLENGTH,
         lognorm_mu=-2.0,
         lognorm_sigma=1.2,
-        seed=SEED       
+        seed=SEED,
         art_logdir = lambda w: os.path.join(OUTDIR, "log", "simulate", w.sample, w.gid)
     run:
         import math, numpy as np, random
