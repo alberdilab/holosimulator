@@ -297,7 +297,7 @@ def main():
         print(f"[{ts()}] {HEADER1}Staging reference transcriptomes...{RESET}", flush=True)
 
         # Check genomes and yield errors if necessary
-        bad = {p: ok for p, ok in check_genomics_paths(args.output / GENOMES_JSON).items() if not ok}
+        bad = {p: ok for p, ok in check_genomics_paths(args.output / TRANSCRIPTOMES_JSON).items() if not ok}
         if bad:
             print(f"{ERROR}Some transcriptome paths are invalid:{RESET}", flush=True)
             for p in bad:
@@ -305,7 +305,7 @@ def main():
             raise SystemExit(1)
 
         try:
-            staged = staging(json_path=args.output / GENOMES_JSON, outdir=Path(args.output).resolve())
+            staged = staging(json_path=args.output / TRANSCRIPTOMES_JSON, outdir=Path(args.output).resolve())
             print(f"[{ts()}] {INFO}All transcriptomes staged{RESET}", flush=True)
         except Exception as e:
             print(f"[{ts()}] {ERROR}[Staging] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
@@ -316,7 +316,7 @@ def main():
                 args.module, 
                 Path(args.output).resolve(), 
                 args.threads, 
-                GENOMES_JSON)
+                TRANSCRIPTOMES_JSON)
         print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
 
 if __name__ == "__main__":
