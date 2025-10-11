@@ -57,7 +57,7 @@ rule calculate_coverage:
         # --- read FASTA quickly without external deps ---
         ids = []
         lens = []
-        with open(input.fasta, "r") as fh:
+        with open(input, "r") as fh:
             cur_id = None
             cur_len = 0
             for line in fh:
