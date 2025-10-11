@@ -2,6 +2,7 @@ configfile: "config.yaml"
 
 import os, json, re, shutil, gzip
 from glob import glob
+from holosimulator.utils import *
 
 # ------------------
 # Config (from YAML)
