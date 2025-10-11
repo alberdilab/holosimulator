@@ -341,7 +341,7 @@ def args_to_transcriptomics_json(
         out.write_text(json.dumps(data, indent=2))
         return out
 
-# Check existence of genomes
+# Check existence of genomes and transcriptomes paths
 def check_genomics_paths(in_json: str | Path, timeout: int = 10) -> dict[str, bool]:
 
     in_path = Path(in_json)
@@ -349,6 +349,31 @@ def check_genomics_paths(in_json: str | Path, timeout: int = 10) -> dict[str, bo
     results: dict[str, bool] = {}
 
     for g in cfg.get("genomes", []):
+        p = g.get("path", "")
+        if not p:
+            results[p] = False
+            continue
+        parsed = urlparse(p)
+        if parsed.scheme in ("http", "https", "ftp"):
+            try:
+                r = requests.head(p, allow_redirects=True, timeout=timeout)
+                if r.status_code >= 400:
+                    # Some servers don't support HEAD; try GET with stream
+                    r = requests.get(p, stream=True, timeout=timeout)
+                results[p] = (r.status_code < 400)
+            except Exception:
+                results[p] = False
+        else:
+            results[p] = os.path.exists(p)
+    return results
+
+def check_transcriptomics_paths(in_json: str | Path, timeout: int = 10) -> dict[str, bool]:
+
+    in_path = Path(in_json)
+    cfg = json.loads(in_path.read_text())
+    results: dict[str, bool] = {}
+
+    for g in cfg.get("transcriptomes", []):
         p = g.get("path", "")
         if not p:
             results[p] = False
