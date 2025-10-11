@@ -128,7 +128,8 @@ rule simulate_transcriptome:
     shell:
         r"""
         set -euo pipefail
-        mkdir -p "$(dirname {output.r1})"
+        mkdir -p "simulation"
+        mkdir -p "$(dirname {output})"
         echo "[`date '+%Y-%m-%d %H:%M:%S'`] [Simulate reads] Simulating transcriptomic reads from genome {wildcards.gid} for sample {wildcards.sample}"
 
         if [ {params.nreads} -eq 0 ]; then
