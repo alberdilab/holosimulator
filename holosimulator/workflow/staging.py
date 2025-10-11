@@ -79,7 +79,7 @@ def _download_to_fa(src: str, fa_path: Path, *, retries: int = 3, timeout: float
                 continue
             raise
 
-def staging(json_path: str | Path, outdir: str | Path, *, overwrite: bool = False) -> list[Path]:
+def staging_genomes(json_path: str | Path, outdir: str | Path, *, overwrite: bool = False) -> list[Path]:
     """
     Read genomes from JSON and write decompressed FASTA files to <outdir>/genomes/{gid}.fa
     Returns the list of produced/kept .fa paths. Sequential; no parallelism.
@@ -109,6 +109,42 @@ def staging(json_path: str | Path, outdir: str | Path, *, overwrite: bool = Fals
             continue
 
         _log(f"[Download genome] {gid} from {src} -> {fa}")
+        _ensure_dir(fa.parent)
+        _download_to_fa(src, fa)
+        produced.append(fa)
+
+    return produced
+
+def staging_transcriptomes(json_path: str | Path, outdir: str | Path, *, overwrite: bool = False) -> list[Path]:
+    """
+    Read genomes from JSON and write decompressed FASTA files to <outdir>/genomes/{gid}.fa
+    Returns the list of produced/kept .fa paths. Sequential; no parallelism.
+    """
+    json_path = Path(json_path)
+    outdir = Path(outdir)
+    genomes_dir = outdir / "transcriptomes"
+    _ensure_dir(genomes_dir)
+
+    with open(json_path) as fh:
+        meta = json.load(fh)
+
+    genomes = meta.get("transcriptomes", [])
+    if not genomes:
+        _log("No transcriptomes found in JSON (.genomes[]).")
+        return []
+
+    produced: list[Path] = []
+    for g in genomes:
+        gid = g["id"]
+        src = g["path"]
+        fa = genomes_dir / f"{gid}.fa"
+
+        if fa.exists() and fa.stat().st_size > 0 and not overwrite:
+            _log(f"[Skip download] {gid} already present -> {fa}")
+            produced.append(fa)
+            continue
+
+        _log(f"[Download transcriptome] {gid} from {src} -> {fa}")
         _ensure_dir(fa.parent)
         _download_to_fa(src, fa)
         produced.append(fa)

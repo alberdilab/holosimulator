@@ -13,7 +13,7 @@ import pathlib
 from datetime import datetime
 from collections import defaultdict
 from holosimulator.utils import *
-from holosimulator.workflow.staging import staging
+from holosimulator.workflow.staging import staging_genomes, staging_transcriptomes
 from holosimulator.workflow.mutations import mutate_fasta_by_ani_streaming
 
 #####
@@ -258,7 +258,7 @@ def main():
             raise SystemExit(1)
 
         try:
-            staged = staging(json_path=args.output / GENOMES_JSON, outdir=Path(args.output).resolve())
+            staged = staging_genomes(json_path=args.output / GENOMES_JSON, outdir=Path(args.output).resolve())
             print(f"[{ts()}] {INFO}All genomes staged{RESET}", flush=True)
         except Exception as e:
             print(f"[{ts()}] {ERROR}[Staging] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
@@ -305,7 +305,7 @@ def main():
             raise SystemExit(1)
 
         try:
-            staged = staging(json_path=args.output / TRANSCRIPTOMES_JSON, outdir=Path(args.output).resolve())
+            staged = staging_transcriptomes(json_path=args.output / TRANSCRIPTOMES_JSON, outdir=Path(args.output).resolve())
             print(f"[{ts()}] {INFO}All transcriptomes staged{RESET}", flush=True)
         except Exception as e:
             print(f"[{ts()}] {ERROR}[Staging] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
