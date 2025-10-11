@@ -227,30 +227,27 @@ def main():
     # Run read simulation
     ###
 
-    if args.module in ("genomics", "transcriptomics"):
+
+    if args.module == "genomics":
 
         GENOMES_JSON =  "genomes.json"
-        GENES_JSON = "genes.json"
 
         if (args.host and str(args.host).strip()) or (args.microbiome and str(args.microbiome).strip()):
             args_to_genomics_json(
-                host=args.host,
-                microbiome=args.microbiome,
-                sample_size=args.sample_size,
-                sequencing_depth=args.sequencing_depth,
-                sequencing_depth_variance=args.sequencing_depth_variance,
-                host_fraction=args.host_fraction,
-                host_fraction_variance=args.host_fraction_variance,
-                microbiome_variance=args.microbiome_variance,
-                seed=args.seed,
-                output_json=args.output / GENOMES_JSON)
+                            host=args.host,
+                            microbiome=args.microbiome,
+                            sample_size=args.sample_size,
+                            sequencing_depth=args.sequencing_depth,
+                            sequencing_depth_variance=args.sequencing_depth_variance,
+                            host_fraction=args.host_fraction,
+                            host_fraction_variance=args.host_fraction_variance,
+                            microbiome_variance=args.microbiome_variance,
+                            seed=args.seed,
+                            output_json=args.output / GENOMES_JSON)
         else:
-            csv_to_inputs_json(args.input, args.output / GENOMES_JSON)
+            csv_to_json_genomes(args.input, args.output / GENOMES_JSON)
 
-        if args.module == "genomics":
-            print(f"[{ts()}] {HEADER1}Staging reference genomes...{RESET}", flush=True)
-        if args.module == "transcriptomics":
-            print(f"[{ts()}] {HEADER1}Staging reference transcriptomes...{RESET}", flush=True)
+        print(f"[{ts()}] {HEADER1}Staging reference genomes...{RESET}", flush=True)
 
         # Check genomes and yield errors if necessary
         bad = {p: ok for p, ok in check_genomics_paths(args.output / GENOMES_JSON).items() if not ok}
@@ -262,34 +259,65 @@ def main():
 
         try:
             staged = staging(json_path=args.output / GENOMES_JSON, outdir=Path(args.output).resolve())
-            if args.module == "genomics":
-                print(f"[{ts()}] {INFO}All genomes staged{RESET}", flush=True)
-            if args.module == "transcriptomics":
-                print(f"[{ts()}] {INFO}All transcriptomes staged{RESET}", flush=True)
+            print(f"[{ts()}] {INFO}All genomes staged{RESET}", flush=True)
         except Exception as e:
             print(f"[{ts()}] {ERROR}[Staging] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
             sys.exit(1)
 
-        if args.module == "genomics":            
-            print(f"[{ts()}] {HEADER1}Simulating genomic reads...{RESET}", flush=True)
-            run_genomics(
+        print(f"[{ts()}] {HEADER1}Simulating genomic reads...{RESET}", flush=True)
+        run_genomics(
                 args.module, 
                 Path(args.output).resolve(), 
                 args.threads, 
                 GENOMES_JSON, 
                 args.sequencing_model,
                 args.seed)
-            print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
+        print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
 
-        if args.module == "transcriptomics":
-            print(f"[{ts()}] {HEADER1}Simulating transcriptomic reads...{RESET}", flush=True)
-            run_transcriptomics(
+
+    if args.module == "transcriptomics":            
+
+        TRANSCRIPTOMES_JSON =  "transcriptomes.json"
+
+        if (args.host and str(args.host).strip()) or (args.microbiome and str(args.microbiome).strip()):
+            args_to_transcriptomics_json(
+                    host=args.host,
+                    microbiome=args.microbiome,
+                    sample_size=args.sample_size,
+                    sequencing_depth=args.sequencing_depth,
+                    sequencing_depth_variance=args.sequencing_depth_variance,
+                    host_fraction=args.host_fraction,
+                    host_fraction_variance=args.host_fraction_variance,
+                    microbiome_variance=args.microbiome_variance,
+                    seed=args.seed,
+                    output_json=args.output / TRANSCRIPTOMES_JSON)
+        else:
+            csv_to_json_transcripts(args.input, args.output / TRANSCRIPTOMES_JSON)
+
+        print(f"[{ts()}] {HEADER1}Staging reference transcriptomes...{RESET}", flush=True)
+
+        # Check genomes and yield errors if necessary
+        bad = {p: ok for p, ok in check_genomics_paths(args.output / GENOMES_JSON).items() if not ok}
+        if bad:
+            print(f"{ERROR}Some transcriptome paths are invalid:{RESET}", flush=True)
+            for p in bad:
+                print(" -", p)
+            raise SystemExit(1)
+
+        try:
+            staged = staging(json_path=args.output / GENOMES_JSON, outdir=Path(args.output).resolve())
+            print(f"[{ts()}] {INFO}All transcriptomes staged{RESET}", flush=True)
+        except Exception as e:
+            print(f"[{ts()}] {ERROR}[Staging] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
+            sys.exit(1)
+
+        print(f"[{ts()}] {HEADER1}Simulating transcriptomic reads...{RESET}", flush=True)
+        run_transcriptomics(
                 args.module, 
                 Path(args.output).resolve(), 
                 args.threads, 
                 GENOMES_JSON)
-            print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
-
+        print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
 
 if __name__ == "__main__":
     main()

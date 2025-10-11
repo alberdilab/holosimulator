@@ -26,9 +26,9 @@ def is_snakemake_locked(workdir: str) -> bool:
     locks_dir = os.path.join(workdir, ".snakemake", "locks")
     return os.path.isdir(locks_dir) and len(os.listdir(locks_dir)) > 0
 
-# CSV input
+# CSV inputs
 
-def csv_to_inputs_json(input_csv: str, output_json: str) -> None:
+def csv_to_json_genomes(input_csv: str, output_json: str) -> None:
     os.makedirs(os.path.dirname(output_json), exist_ok=True)
     df = pd.read_csv(input_csv, sep=None, engine="python")
     df.columns = df.columns.str.strip().str.replace(r"\ufeff", "", regex=True)
@@ -58,6 +58,39 @@ def csv_to_inputs_json(input_csv: str, output_json: str) -> None:
         })
 
     data = {"samples": sample_cols, "genomes": genomes}
+    with open(output_json, "w") as fh:
+        json.dump(data, fh, indent=2)
+
+def csv_to_json_transcriptomes(input_csv: str, output_json: str) -> None:
+    os.makedirs(os.path.dirname(output_json), exist_ok=True)
+    df = pd.read_csv(input_csv, sep=None, engine="python")
+    df.columns = df.columns.str.strip().str.replace(r"\ufeff", "", regex=True)
+    if not {"Organism", "Path"}.issubset(df.columns):
+        missing = {"Organism", "Path"} - set(df.columns)
+        raise ValueError(f"Input file missing required columns: {missing}")
+    df["Organism"] = df["Organism"].astype(str)
+
+    sample_cols = [c for c in df.columns if str(c).startswith("Sample")]
+    if not sample_cols:
+        raise ValueError("No sample columns found (expected columns starting with 'Sample').")
+
+    # deterministic ID assignment in row order
+    transcriptomes = []
+    for i, r in enumerate(df.itertuples(index=False), start=1):
+        gid = f"G{i:04d}"
+        org = getattr(r, "Organism")
+        path = getattr(r, "Path")
+        cat = getattr(r, "Category", None) if "Category" in df.columns else None
+        abund = {s: float(getattr(r, s)) for s in sample_cols}
+        transcriptomes.append({
+            "id": gid,
+            "organism": org,
+            "category": None if pd.isna(cat) else str(cat),
+            "path": str(path),
+            "abundances": abund,
+        })
+
+    data = {"samples": sample_cols, "transcriptomes": transcriptomes}
     with open(output_json, "w") as fh:
         json.dump(data, fh, indent=2)
 
