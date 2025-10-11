@@ -41,9 +41,9 @@ rule all:
 
 rule calculate_coverage:
     input:
-        os.path.join(OUTDIR, "transcriptomes", "{gid}.fa")
+        fasta=os.path.join(OUTDIR, "transcriptomes", "{gid}.fa")
     output:
-        os.path.join(OUTDIR, "simulation", "{sample}/{gid}.tsv")
+        tsv=os.path.join(OUTDIR, "simulation", "{sample}/{gid}.tsv")
     threads: 1
     params:
         total_reads=10_000_000,
@@ -57,7 +57,7 @@ rule calculate_coverage:
         # --- read FASTA quickly without external deps ---
         ids = []
         lens = []
-        with open(input, "r") as fh:
+        with open(input.fasta, "r") as fh:
             cur_id = None
             cur_len = 0
             for line in fh:
@@ -110,7 +110,7 @@ rule calculate_coverage:
         coverage = (read_counts * read_len) / lens_safe
 
         # --- write TSV (no header): <id>\t<coverage> ---
-        with open(output, "w") as out:
+        with open(output.tsv, "w") as out:
             for tid, cov in zip(ids, coverage):
                 # format with reasonable precision
                 out.write(f"{tid}\t{cov:.6f}\n")
