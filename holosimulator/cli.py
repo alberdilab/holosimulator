@@ -74,7 +74,7 @@ def run_genomics(module, output_dir, threads, input, sequencing_model, seed):
     ]
     subprocess.run(snakemake_command, shell=False, check=True)
 
-def run_transcriptomics(module, output_dir, threads, input, sequencing_model, seed):
+def run_transcriptomics(module, output_dir, threads, input):
     snakemake_command = [
         "/bin/bash", "-c",
         "snakemake "
@@ -83,7 +83,7 @@ def run_transcriptomics(module, output_dir, threads, input, sequencing_model, se
         f"--cores {threads} "
         f"--quiet 2>/dev/null "
         f"--configfile {CONFIG_PATH} "
-        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input} sequencing_model={sequencing_model} seed={seed}"
+        f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input}"
     ]
     subprocess.run(snakemake_command, shell=False, check=True)
 
@@ -247,7 +247,10 @@ def main():
         else:
             csv_to_inputs_json(args.input, args.output / GENOMES_JSON)
 
-        print(f"[{ts()}] {HEADER1}Staging reference genomes...{RESET}", flush=True)
+        if args.module == "genomics":
+            print(f"[{ts()}] {HEADER1}Staging reference genomes...{RESET}", flush=True)
+        if args.module == "transcriptomics":
+            print(f"[{ts()}] {HEADER1}Staging reference transcriptomes...{RESET}", flush=True)
 
         # Check genomes and yield errors if necessary
         bad = {p: ok for p, ok in check_genomics_paths(args.output / GENOMES_JSON).items() if not ok}
@@ -259,7 +262,10 @@ def main():
 
         try:
             staged = staging(json_path=args.output / GENOMES_JSON, outdir=Path(args.output).resolve())
-            print(f"[{ts()}] {INFO}All genomes staged{RESET}", flush=True)
+            if args.module == "genomics":
+                print(f"[{ts()}] {INFO}All genomes staged{RESET}", flush=True)
+            if args.module == "transcriptomics":
+                print(f"[{ts()}] {INFO}All transcriptomes staged{RESET}", flush=True)
         except Exception as e:
             print(f"[{ts()}] {ERROR}[Staging] ERROR: {e}{RESET}", file=sys.stderr, flush=True)
             sys.exit(1)
@@ -276,30 +282,12 @@ def main():
             print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
 
         if args.module == "transcriptomics":
-            print(f"[{ts()}] {HEADER1}Calculating read allocation...{RESET}", flush=True)
-            genomics_to_transcriptomics_json(
-                GENOMES_JSON, 
-                GENES_JSON, 
-                Path(args.output).resolve(),
-                allocation="tpm",
-                allocation_params={
-                    "read_length": 150,
-                    "ln_mu": 0.0, "ln_sigma": 1.2,
-                    "gc_bias_strength": 2.0, "gc_bias_linear": 0.0,
-                    "overdispersion": 50.0,      # smaller => noisier
-                    "dropout_rate": 0.01,
-                    "min_reads": 0,
-                },
-                pairs_to_reads=2)
-
             print(f"[{ts()}] {HEADER1}Simulating reads...{RESET}", flush=True)
             run_transcriptomics(
                 args.module, 
                 Path(args.output).resolve(), 
                 args.threads, 
-                GENES_JSON, 
-                args.sequencing_model,
-                args.seed)
+                GENOMES_JSON)
             print(f"[{ts()}] {END}Holosimulator completed succesfully{RESET}", flush=True)
 
 
