@@ -55,11 +55,8 @@ rule calculate_coverage:
         seed=SEED,
         art_logdir = lambda w: os.path.join(OUTDIR, "log", "simulate", w.sample, w.gid)
     run:
-       import math, numpy as np, random, sys, os
-
-        print(f"[{ts()}] [Simulate reads] Calculating gene coverages for genome {wildcards.gid} in sample {wildcards.sample}", 
-              file=sys.stderr, flush=True)
-
+        import math, numpy as np, random
+        print(f"[{ts()}] [Simulate reads] Calculating gene coverages for genome {wildcards.gid} in sample {wildcards.sample}", file=sys.stderr, flush=True)
         # --- read FASTA quickly without external deps ---
         ids = []
         lens = []
@@ -68,13 +65,16 @@ rule calculate_coverage:
             cur_len = 0
             for line in fh:
                 if line.startswith(">"):
+                    # flush previous
                     if cur_id is not None:
                         ids.append(cur_id)
                         lens.append(cur_len)
+                    # get new id up to first whitespace
                     cur_id = line[1:].strip().split()[0]
                     cur_len = 0
                 else:
                     cur_len += len(line.strip())
+            # flush last
             if cur_id is not None:
                 ids.append(cur_id)
                 lens.append(cur_len)
@@ -91,6 +91,7 @@ rule calculate_coverage:
         if total_reads <= 0:
             with open(output.tsv, "w") as out:
                 out.write("0\n")
+            print(f"[{ts()}] total_reads == 0 → wrote file with single '0'", file=sys.stderr)
             return
 
         # --- sample realistic expression & allocate reads ---
