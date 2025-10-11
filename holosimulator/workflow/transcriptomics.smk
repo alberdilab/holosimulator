@@ -110,7 +110,7 @@ rule calculate_coverage:
         coverage = (read_counts * read_len) / lens_safe
 
         # --- write TSV (no header): <id>\t<coverage> ---
-        with open(output.tsv, "w") as out:
+        with open(output, "w") as out:
             for tid, cov in zip(ids, coverage):
                 # format with reasonable precision
                 out.write(f"{tid}\t{cov:.6f}\n")
