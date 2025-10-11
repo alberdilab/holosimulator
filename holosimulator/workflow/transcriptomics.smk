@@ -124,9 +124,6 @@ rule simulate_transcriptome:
         nreads   = lambda w: int(ABUND[ID_TO_ORG[w.gid]][w.sample]),
         art_logdir = lambda w: os.path.join(OUTDIR, "log", "simulate", w.sample, w.gid)
     threads: 1
-    wildcard_constraints:
-        sample = WCS_SAMPLE,
-        gid    = WCS_GID
     shell:
         r"""
         set -euo pipefail
