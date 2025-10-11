@@ -41,7 +41,7 @@ rule all:
 
 rule calculate_coverage:
     input:
-        os.path.join(OUTDIR, "genomes", "{gid}.fa")
+        os.path.join(OUTDIR, "transcriptomes", "{gid}.fa")
     output:
         os.path.join(OUTDIR, "simulation", "{sample}/{gid}.tsv")
     threads: 1
@@ -117,7 +117,7 @@ rule calculate_coverage:
 
 rule simulate_transcriptome:
     input:
-        fa=os.path.join(OUTDIR, "genomes", "{gid}.fa"),
+        fa=os.path.join(OUTDIR, "transcriptomes", "{gid}.fa"),
         cov=os.path.join(OUTDIR, "simulation/{sample}/{gid}.tsv")
     output:
         temp(os.path.join(OUTDIR, "simulation/{sample}/{gid}.fastq"))
