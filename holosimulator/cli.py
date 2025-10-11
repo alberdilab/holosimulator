@@ -81,7 +81,7 @@ def run_transcriptomics(module, output_dir, threads, input):
         f"-s {PACKAGE_DIR / 'workflow' / 'transcriptomics.smk'} "
         f"--directory {output_dir} "
         f"--cores {threads} "
-        f"--quiet 2>/dev/null "
+        #f"--quiet 2>/dev/null "
         f"--configfile {CONFIG_PATH} "
         f"--config package_dir={PACKAGE_DIR} module={module} output_dir={output_dir} input={input}"
     ]
