@@ -55,8 +55,11 @@ rule calculate_coverage:
         seed=SEED,
         art_logdir = lambda w: os.path.join(OUTDIR, "log", "simulate", w.sample, w.gid)
     run:
-        import math, numpy as np, random
-        print(f"[{ts()}] [Simulate reads] Calculating gene coverages for genome {wildcards.gid} in sample {wildcards.sample}", file=sys.stderr, flush=True)
+       import math, numpy as np, random, sys, os
+
+        print(f"[{ts()}] [Simulate reads] Calculating gene coverages for genome {wildcards.gid} in sample {wildcards.sample}", 
+              file=sys.stderr, flush=True)
+
         # --- read FASTA quickly without external deps ---
         ids = []
         lens = []
@@ -65,16 +68,13 @@ rule calculate_coverage:
             cur_len = 0
             for line in fh:
                 if line.startswith(">"):
-                    # flush previous
                     if cur_id is not None:
                         ids.append(cur_id)
                         lens.append(cur_len)
-                    # get new id up to first whitespace
                     cur_id = line[1:].strip().split()[0]
                     cur_len = 0
                 else:
                     cur_len += len(line.strip())
-            # flush last
             if cur_id is not None:
                 ids.append(cur_id)
                 lens.append(cur_len)
@@ -84,38 +84,34 @@ rule calculate_coverage:
 
         lens = np.asarray(lens, dtype=np.int64)
 
+        total_reads = int(params.total_reads)
+        read_len = float(params.read_length)
+
+        # Handle case where total_reads == 0
+        if total_reads <= 0:
+            with open(output.tsv, "w") as out:
+                out.write("0\n")
+            return
+
         # --- sample realistic expression & allocate reads ---
         rng = np.random.default_rng(params.seed)
-        # log-normal expression weights (skewed like real transcriptomes)
         weights = rng.lognormal(mean=params.lognorm_mu,
                                 sigma=params.lognorm_sigma,
                                 size=len(ids)).astype(float)
 
-        # normalize to probabilities; guard against numeric issues
         weights_sum = float(weights.sum())
         if weights_sum == 0.0 or not np.isfinite(weights_sum):
-            # fallback to uniform if something odd happens
             probs = np.ones_like(weights) / len(weights)
         else:
             probs = weights / weights_sum
 
-        total_reads = int(params.total_reads)
-        if total_reads <= 0:
-            raise ValueError("params.total_reads must be > 0")
-
-        # multinomial allocation to ensure read counts sum exactly
         read_counts = rng.multinomial(total_reads, probs)
 
-        # --- compute coverage per transcript ---
-        read_len = float(params.read_length)
-        lens_safe = lens.astype(float)
-        # coverage = (reads * read_length) / transcript_length
-        coverage = (read_counts * read_len) / lens_safe
+        coverage = (read_counts * read_len) / lens.astype(float)
 
         # --- write TSV (no header): <id>\t<coverage> ---
         with open(output.tsv, "w") as out:
             for tid, cov in zip(ids, coverage):
-                # format with reasonable precision
                 out.write(f"{tid}\t{cov:.6f}\n")
 
 rule simulate_transcriptome:
